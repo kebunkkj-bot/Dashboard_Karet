@@ -1,1735 +1,1941 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Karet (Produksi)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard Karet</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            /* Latar belakang abu-abu muda */
+        :root{
+            --control-h:44px;
+            --blue-sapphire:#1d4ed8;
+            --border:#e5e7eb;
+            --muted:#6b7280;
         }
 
-        .kpi-card {
-            background-color: white;
-            border-radius: 12px;
-            /* Lebih bulat */
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            padding: 24px;
-            transition: all 0.3s ease;
-            border: 1px solid #e5e7eb;
-            /* Border tipis */
+        body { font-family: 'Inter', sans-serif; background:#f3f4f6; margin:0; height:100vh; overflow:hidden; color:#000; }
+        .dashboard-container { display:flex; width:100%; height:100vh; background:#f9fafb; }
+        .sidebar {
+            width:240px; background:#fff; border-right:1px solid #e5e7eb; padding:1.5rem; display:flex; flex-direction:column;
+            transition: width .25s ease, padding .25s ease;
         }
+        .sidebar.minimized { width:80px; padding:1.5rem 1rem; align-items:center; }
 
-        .kpi-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-        }
+        .logo-container { display:flex; gap:0.75rem; align-items:center; margin-bottom:1.5rem; }
+        .nav-text { font-weight:700; color:#0f172a; }
+        .nav-link { display:flex; align-items:center; gap:0.75rem; padding:.5rem .75rem; border-radius:.5rem; color:#475569; text-decoration:none; transition:background .15s, color .15s; white-space:nowrap; overflow:hidden; }
+        .nav-link i { display:inline-flex; align-items:center; justify-content:center; min-width:20px; min-height:20px; }
+        .nav-link.active { background:#f1f5f9; color:var(--blue-sapphire); font-weight:600; }
 
-        .kpi-title {
-            font-size: 1rem;
-            /* 16px */
-            font-weight: 500;
-            color: #4b5563;
-            /* Gray-600 */
-            margin-bottom: 16px;
-            /* Jarak lebih */
-            display: flex;
-            align-items: center;
-        }
+        /* Saat sidebar diminimisasi: sembunyikan teks, rata tengah icon */
+        .sidebar.minimized .nav-link { justify-content:center; padding:.5rem 0.25rem; }
+        .sidebar.minimized .nav-link .nav-text { display:none; width:0; opacity:0; pointer-events:none; }
+        .sidebar.minimized .logo-container .nav-text { display:none; width:0; opacity:0; pointer-events:none; }
 
-        .kpi-title svg {
-            width: 20px;
-            height: 20px;
-            margin-right: 8px;
-            color: #6b7280;
-            /* Gray-500 */
-        }
+        .main-content { flex:1; padding:1.5rem; overflow:auto; display:flex; flex-direction:column; gap:1rem; }
 
-        .kpi-value {
-            font-size: 2.25rem;
-            /* 36px */
-            font-weight: 700;
-            color: #111827;
-            /* Gray-900 */
-            line-height: 1.2;
-        }
+        /* Header title */
+        .dashboard-header { display:flex; flex-direction:column; gap:4px; }
+        .dashboard-title { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; }
+        .title-badge { display:inline-flex; align-items:center; gap:8px; background:linear-gradient(90deg, rgba(29,78,216,0.06), rgba(125,211,252,0.02)); color:var(--blue-sapphire); padding:6px 10px; border-radius:8px; font-weight:700; font-size:.85rem; }
 
-        .kpi-detail {
-            font-size: 0.875rem;
-            /* 14px */
-            color: #6b7280;
-            /* Gray-500 */
-            margin-top: 8px;
-        }
+        /* Date control - Border dihilangkan, diganti shadow tipis */
+        .date-control { display:inline-flex; align-items:center; gap:8px; background:#fff; border-radius:10px; padding:4px; height:var(--control-h); position:relative; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.03); }
+        .date-left { display:inline-flex; align-items:center; justify-content:center; min-width:120px; height:calc(var(--control-h) - 8px); padding:0 12px; font-size:.78rem; font-weight:700; color:#0b0b0b; background:#fff; border-radius:8px; border:1px solid transparent; }
+        .date-control input[type="date"] { -webkit-appearance:none; appearance:none; border:none; height:calc(var(--control-h) - 8px); padding:0 12px; font-size:.95rem; font-weight:600; color:#0b0b0b; background:transparent; min-width:160px; }
+        .date-arrow-group { display:inline-flex; gap:8px; align-items:center; margin-left:6px; }
+        /* Date button - Border dihilangkan, background lebih soft */
+        .date-btn { width:38px; height:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; background:#f1f5f9; border:none; color:var(--blue-sapphire); cursor:pointer; transition:background .12s, transform .12s; }
+        .date-btn:hover:not(:disabled) { background:rgba(29,78,216,0.06); transform:translateY(-2px); }
+        .date-btn:disabled { color:#9ca3af; background:#f9fafb; cursor:not-allowed; }
+        input[type="date"] { background:#fff; border:1px solid #d1d5db; border-radius:.375rem; padding:.375rem .75rem; font-size:.875rem; color:#0f172a; }
 
-        .kpi-percent {
-            font-size: 1.125rem;
-            /* 18px */
-            font-weight: 600;
-        }
+        /* KPI card */
+        .kpi-card { background:#fff; padding:1rem; border-radius:.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.04); border:1px solid #e5e7eb; display:flex; flex-direction:column; justify-content:space-between; }
+        /* Grid height removed to allow content growth */
+        .kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; height:auto; } /* Diubah dari 4 ke 3 */
 
-        .positive {
-            color: #10b981;
-            /* Green-500 */
-        }
-
-        .negative {
-            color: #ef4444;
-            /* Red-500 */
-        }
-
-        .neutral {
-            color: #6b7280;
-            /* Gray-500 */
-        }
-
-        /* Styling untuk Tabel Detail */
-        .detail-card {
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e5e7eb;
-            overflow: hidden;
-            /* Penting agar tabel tidak merusak radius */
-        }
-
+        /* charts and panels */
+        .card { background:#fff; padding:1rem; border-radius:.5rem; border:1px solid #e5e7eb; box-shadow:none; display:flex; flex-direction:column; }
+        
+        /* New styling for the detailed table header (DIHAPUS KARENA JUDUL DETAIL DIHAPUS) */
         .detail-header {
-            padding: 16px 24px;
-            background-color: #f9fafb;
-            /* Gray-50 */
-            border-bottom: 1px solid #e5e7eb;
+            /* HANYA SEBAGAI PEMBUNGKUS UTAMA SEKARANG */
+            border-radius: 0.5rem 0.5rem 0 0;
         }
-
-        .tab-controls {
-            display: flex;
-            flex-wrap: wrap;
-            /* Membungkus jika tidak cukup */
-            justify-content: flex-start;
-            /* Rata kiri (default) */
-            gap: 8px;
-            /* Jarak antar tombol */
-            padding: 16px 24px;
-            background-color: #f9fafb;
-            /* Latar belakang abu-abu sangat muda */
+        .detail-header h3 {
+            display: none; /* Judul dihapus */
         }
-
-        .tab-button {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            border-radius: 8px;
-            /* Melengkung di semua sudut */
-            border: 1px solid transparent;
-            background-color: #e5e7eb;
-            /* Abu-abu tidak aktif */
-            color: #6b7280;
-            /* Teks abu-abu */
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .tab-button:hover {
-            background-color: #d1d5db;
-            /* Abu-abu lebih gelap saat hover */
-        }
-
-        .tab-button.active {
-            background-color: #3b82f6;
-            /* Biru saat aktif */
-            color: white;
-            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-        }
-
-        .tab-button.active svg {
-            color: white;
-        }
-
-        .tab-button svg {
-            width: 16px;
-            height: 16px;
-        }
-
-        .tab-content {
-            display: none;
-            /* Sembunyi secara default */
-            padding: 0;
-            /* Padding diatur oleh wrapper tabel */
-        }
-
-        .tab-content.active {
-            display: block;
-            /* Tampil saat aktif */
-        }
-
-
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
-            /* Scroll horizontal jika perlu */
-            -webkit-overflow-scrolling: touch;
-            padding: 24px;
-            /* Padding di dalam card, di luar tabel */
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            /* Hapus spasi antar sel */
-            border-spacing: 0;
+        
+        /* Modifikasi card untuk menyatukan header dan content tanpa double border */
+        .detail-card {
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             border: 1px solid #e5e7eb;
-            /* Border luar */
-            border-radius: 8px;
-            /* Sudut melengkung (meskipun overflow hidden di parent lebih efektif) */
-        }
-
-        .data-table th,
-        .data-table td {
-            padding: 12px 16px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 0.875rem;
-            /* 14px */
-        }
-
-        /* Header Tabel */
-        .data-table thead th {
-            background-color: #f9fafb;
-            /* Gray-50 */
-            font-weight: 600;
-            color: #374151;
-            /* Gray-700 */
-            vertical-align: middle;
-            text-align: center;
-            border-bottom: 2px solid #e5e7eb;
-            /* Garis header lebih tebal */
-            border-right: 1px solid #e5e7eb;
-            /* Garis vertikal */
-        }
-
-        .data-table thead th:last-child {
-            border-right: 0;
-        }
-
-        .data-table thead th[rowspan="2"] {
-            vertical-align: middle;
-        }
-
-        /* Body Tabel */
-        .data-table tbody tr:hover {
-            background-color: #f9fafb;
-            /* Highlight saat hover */
-        }
-
-        .data-table tbody td {
-            color: #1f2937;
-            /* Gray-800 */
-            text-align: right;
-            vertical-align: top;
-            /* Rata atas untuk data */
-            border-right: 1px solid #e5e7eb;
-        }
-
-        .data-table tbody td:last-child {
-            border-right: 0;
-        }
-
-        /* Kolom Teks (Afdeling, Mandor) */
-        .data-table tbody td:first-child,
-        .data-table tbody td.text-left {
-            text-align: left;
-            font-weight: 500;
-            color: #111827;
-        }
-
-        /* Footer Tabel (Total) */
-        .data-table tfoot tr {
-            background-color: #f9fafb;
-            /* Latar abu-abu untuk total */
-            border-top: 2px solid #e5e7eb;
-            /* Garis tebal di atas total */
-        }
-
-        .data-table tfoot td {
-            font-weight: 700;
-            /* Bold */
-            color: #111827;
-            /* Hitam */
-            text-align: right;
-            vertical-align: top;
-            border-right: 1px solid #e5e7eb;
-        }
-
-        .data-table tfoot td:last-child {
-            border-right: 0;
-        }
-
-        .data-table tfoot td:first-child {
-            text-align: center;
-            /* Total rata tengah */
-        }
-
-        /* Filter Header */
-        .filter-header {
-            padding: 24px;
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            /* Bungkus jika layar kecil */
-            gap: 16px;
-        }
-
-        .filter-header h1 {
-            font-size: 1.5rem;
-            /* 24px */
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .filter-header .date-filter {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .filter-header label {
-            font-weight: 500;
-            color: #374151;
-        }
-
-        .filter-header input[type="date"] {
-            padding: 8px 12px;
-            border: 1px solid #d1d5db;
-            /* Gray-300 */
-            border-radius: 8px;
-            font-size: 0.875rem;
-            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-
-        /* Chart Card */
-        .chart-card {
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            padding: 24px;
-            border: 1px solid #e5e7eb;
-            height: 400px;
-            /* Tinggi tetap untuk konsistensi */
-        }
-
-        /* Loading Overlay */
-        #loading-overlay {
-            position: fixed;
-            inset: 0;
-            background-color: rgba(255, 255, 255, 0.8);
             display: flex;
             flex-direction: column;
+            margin-top: 1rem; /* Adjust margin if needed */
+        }
+        .detail-card .tab-container {
+            padding: 1rem; /* Padding untuk konten di bawah header */
+            background: #fff;
+            border-radius: 0 0 0.5rem 0.5rem;
+        }
+
+        /* Custom style for the KG difference text */
+        .diff-kg-text { font-size: 0.75rem; font-weight: 400; margin-left: 0.25rem; }
+        .text-green-600 .diff-kg-text { color: #10b981; } /* Tailwind green-500/600 */
+        .text-red-600 .diff-kg-text { color: #ef4444; } /* Tailwind red-500/600 */
+
+        /* Style untuk % pencapaian di sub-sel tabel afdeling */
+        .sub-pct { display: block; font-size: 0.7rem; /* 11px */ margin-top: 2px; }
+        .sub-pct i { width: 12px; height: 12px; }
+        
+        /* Style untuk Tab Button yang lebih modern (Rounded, Border Bawah tebal) */
+        .tab-button {
+            display: flex; /* Untuk ikon */
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px; /* Padding lebih besar */
+            font-weight: 600;
+            /* Perubahan: Pojok bawah juga melengkung */
+            border-radius: 8px; 
+            border: none;
+            cursor: pointer;
+            transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+            color: #6b7280; /* Dibuat lebih kontras (gray-500/600) */
+            background: #e5e7eb; /* Dibuat lebih kontras (gray-200) */
+            margin-bottom: 0; 
+            margin-right: 8px; /* Jarak antar tab */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Tambah shadow tipis */
+        }
+        /* Style untuk tab aktif */
+        .tab-button.active {
+            color: var(--blue-sapphire); 
+            background: #fff; /* Latar belakang putih untuk tab aktif */
+            /* Hapus border untuk meniru card-like element */
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Shadow lebih menonjol */
+            position: relative;
+            z-index: 10;
+        }
+        /* Container untuk tab control */
+        .tab-controls {
+            display: flex;
+            justify-content: flex-start; /* UBAH: RATA KIRI untuk tampilan "Full" */
+            flex-wrap: wrap; /* TAMBAH: Agar tombol membungkus ke baris baru */
+            border-bottom: 0; 
+            padding-bottom: 0;
+            margin-bottom: 1rem; /* Jarak dari tab ke konten/card di bawah */
+        }
+        .tab-container {
+            border-top: 0; 
+            /* Ganti dengan padding-top normal */
+            padding-top: 0;
+        }
+        /* --- PERUBAHAN UKURAN FONT TABEL --- */
+        /* Tabel Afdeling, Mandor, Asisten Afdeling */
+        .tab-content table tbody td, 
+        .tab-content table tfoot td {
+            font-size: 0.75rem; /* Mengubah ukuran teks di tbody/tfoot menjadi text-xs (12px) */
+            vertical-align: top; /* TAMBAHAN: Align konten ke atas */
+        }
+
+        /* Chart container styling */
+        #monthlyProductionChartContainer,
+        #monthlyOhkChartContainer { /* Ditambahkan OHK */
+            min-height: 250px;
+        }
+        
+        /* Tambahkan loading indicator */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 9999;
-            backdrop-filter: blur(4px);
-            transition: opacity 0.3s ease;
+            z-index: 50;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            color: var(--blue-sapphire);
+            gap: 0.5rem;
         }
 
-        #loading-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
 
-        .loader {
-            width: 48px;
-            height: 48px;
-            border: 5px solid #3b82f6;
-            /* Biru */
-            border-bottom-color: transparent;
-            border-radius: 50%;
-            display: inline-block;
-            box-sizing: border-box;
-            animation: rotation 1s linear infinite;
-        }
-
-        #loading-overlay p {
-            font-weight: 500;
-            color: #1f2937;
-            margin-top: 16px;
-        }
-
-        @keyframes rotation {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+        @media (max-width:1000px){
+            .kpi-grid { grid-template-columns:repeat(2,1fr); height:auto; }
+            .date-left { display:none; }
+            .date-control input[type="date"] { min-width:140px; }
+            .dashboard-title span:last-child { display:none; }
+            .kpi-card { height:auto; }
+            /* Grid chart akan menjadi 1 kolom di bawah 1000px */
+            .main-content > div:nth-child(3) { grid-template-columns:1fr; }
+            .col-span-2 { grid-column:span 1 / span 1; }
+            .col-span-1 { grid-column:span 1 / span 1; }
+            .tab-button { padding: 8px 10px; font-size: 0.75rem; }
+            .tab-button i { display: none; } /* Sembunyikan ikon di mobile agar tidak terlalu padat */
         }
     </style>
 </head>
+<body>
+    <div class="dashboard-container">
+        <aside id="sidebar" class="sidebar" aria-label="Sidebar utama">
+            <div class="logo-container">
+                <!-- toggle menu replaces logo --><button id="toggle-sidebar" class="p-2 bg-blue-700 rounded-lg text-white" aria-label="Toggle sidebar" title="Toggle sidebar">
+                    <i data-feather="menu"></i>
+                </button>
+                <h1 class="text-xl nav-text">Dashboard Karet</h1><!-- Teks sidebar diubah --></div>
 
-<body class="p-4 md:p-8">
+            <nav class="flex flex-col gap-2" role="navigation" aria-label="Menu utama">
+                <a href="#" class="nav-link active" title="Produksi" data-label="Produksi" aria-label="Produksi"><i data-feather="layers" aria-hidden="true"></i><span class="nav-text">Produksi</span></a>
+                <a href="#" class="nav-link" title="Per Tapper" data-label="Per Tapper" aria-label="Per Tapper"><i data-feather="users" aria-hidden="true"></i><span class="nav-text">Per Tapper</span></a>
+                <a href="#" class="nav-link" title="Mutu Bahan Baku" data-label="Mutu Bahan Baku" aria-label="Mutu Bahan Baku"><i data-feather="droplet" aria-hidden="true"></i><span class="nav-text">Mutu Bahan Baku</span></a>
+                <a href="#" class="nav-link" title="Mutu Jadi" data-label="Mutu Jadi" aria-label="Mutu Jadi"><i data-feather="award" aria-hidden="true"></i><span class="nav-text">Mutu Jadi</span></a>
+                <a href="#" class="nav-link" title="Produksi 5 Tahun" data-label="Produksi 5 Tahun" aria-label="Produksi 5 Tahun"><i data-feather="calendar" aria-hidden="true"></i><span class="nav-text">Produksi 5 Tahun</span></a>
+                <a href="#" class="nav-link" title="Biaya Produksi" data-label="Biaya Produksi" aria-label="Biaya Produksi"><i data-feather="dollar-sign" aria-hidden="true"></i><span class="nav-text">Biaya Produksi</span></a>
+                <a href="#" class="nav-link" title="Penjualan" data-label="Penjualan" aria-label="Penjualan"><i data-feather="truck" aria-hidden="true"></i><span class="nav-text">Penjualan</span></a>
+            </nav>
+        </aside>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="hidden">
-        <div class="loader"></div>
-        <p>Mengambil data terbaru...</p>
+        <main class="main-content">
+            <header class="flex items-center justify-between">
+                <div class="dashboard-header">
+                    <div class="dashboard-title">
+                        <span class="title-badge"><i data-feather="grid"></i> Karet</span><!-- Badge diubah menjadi Karet --><span>Dashboard Karet</span><!-- Judul utama diubah menjadi Dashboard Karet --></div>
+                </div>
+
+                <div class="flex items-center">
+                    <div class="date-control" role="group" aria-label="Kontrol tanggal upah">
+                        <span class="date-left">s.d. Tanggal</span>
+                        <input type="date" id="date-filter" name="date-filter" aria-label="Pilih tanggal s.d. upah">
+                        <div class="date-arrow-group" aria-hidden="false">
+                            <!-- Ikon panah diubah dari chevron ke arrow --><button id="prev-date" class="date-btn" title="Tanggal sebelumnya" aria-label="Tanggal sebelumnya"><i data-feather="arrow-left"></i></button>
+                            <button id="next-date" class="date-btn" title="Tanggal berikutnya" aria-label="Tanggal berikutnya"><i data-feather="arrow-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Loading Indicator Container --><div id="loading-overlay" class="loading-overlay hidden">
+                <div class="flex items-center gap-2">
+                    <i data-feather="loader" class="animate-spin w-5 h-5"></i>
+                    <span>Memuat data dari Google Sheets...</span>
+                </div>
+            </div>
+
+            <!-- KPI Grid --><div class="kpi-grid">
+                <!-- Total Produksi (YTD) - STRUKTUR BARU --><div class="kpi-card">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-blue-100 rounded-lg"><i data-feather="package" class="text-blue-700"></i></div>
+                        <span class="text-sm font-medium">Total Produksi (YTD)</span>
+                    </div>
+                    <div class="mt-2">
+                        <!-- Nilai Aktual (Akan menggunakan format penuh) --><p id="kpi-ytd-prod" class="text-2xl font-bold">0 Kg</p>
+                        <!-- RKAP Comparison --><div id="kpi-ytd-rkap-line" class="mt-2 text-xs"></div>
+                        <!-- Tahun Lalu Comparison --><div id="kpi-ytd-prev-year-line" class="mt-1 text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- Produksi Bulan Ini - STRUKTUR BARU --><div class="kpi-card">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-blue-100 rounded-lg"><i data-feather="file-text" class="text-blue-700"></i></div>
+                        <span class="text-sm font-medium">Produksi Bulan Ini</span>
+                    </div>
+                    <div class="mt-2">
+                         <!-- Nilai Aktual (Akan menggunakan format penuh) --><p id="kpi-bulan-prod" class="text-2xl font-bold">0 Kg</p>
+                        <!-- RKAP Comparison --><div id="kpi-bulan-rkap-line" class="mt-2 text-xs"></div>
+                        <!-- Tahun Lalu Comparison --><div id="kpi-bulan-prev-year-line" class="mt-1 text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- Produksi Hari Ini - STRUKTUR BARU --><div class="kpi-card">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-green-100 rounded-lg"><i data-feather="check-circle" class="text-green-700"></i></div>
+                        <span class="text-sm font-medium">Produksi Hari Ini</span>
+                    </div>
+                    <div class="mt-2">
+                         <!-- Nilai Aktual (Akan menggunakan format penuh) --><p id="kpi-today-prod" class="text-2xl font-bold">0 Kg</p>
+                        <!-- RKAP Comparison --><div id="kpi-today-rkap-line" class="mt-2 text-xs"></div>
+                        <!-- Tahun Lalu Comparison --><div id="kpi-today-prev-year-line" class="mt-1 text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- Rata-rata Harian - STRUKTUR BARU (DIHAPUS) --></div>
+
+            <!-- TABEL DETAIL GABUNGAN (TABS) -->
+            <div class="detail-card"> 
+                <!-- Header Card dihapus isinya, hanya menyisakan wrapper -->
+                <div class="detail-header">
+                </div>
+
+                <div class="tab-container">
+                    <!-- Tab Controls -->
+                    <div class="tab-controls mb-4">
+                        <button id="tab-afdeling" class="tab-button active" data-target="content-afdeling"><i data-feather="map-pin"></i>Per Afdeling</button>
+                        <button id="tab-mandor" class="tab-button" data-target="content-mandor"><i data-feather="users"></i>Per Mandor</button>
+                        <button id="tab-asafdeling" class="tab-button" data-target="content-asafdeling"><i data-feather="user-check"></i>Per Asisten Afdeling</button>
+                        <button id="tab-ttanam" class="tab-button" data-target="content-tahun-tanam"><i data-feather="calendar"></i>Per Tahun Tanam</button>
+                        <!-- TAB BARU: PER TAPPER --><button id="tab-tapper" class="tab-button" data-target="content-tapper"><i data-feather="droplet"></i>Per Tapper</button>
+                    </div>
+
+                    <!-- Content Area 1: Afdeling (Active by Default) -->
+                    <div id="content-afdeling" class="tab-content">
+                        <table class="w-full text-sm text-left text-gray-700 border-collapse border border-gray-200">
+                            <thead class="text-xs text-white uppercase bg-blue-700">
+                                <tr>
+                                    <!-- R1, C1: Afdeling (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-left align-middle border-b border-white border-r border-white">Afdeling</th>
+                                    <!-- R1, C2: Luas (Ha) (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-center align-middle border-b border-white border-r border-white">Luas (Ha)</th>
+                                    
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Hari Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Bulan Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">S.d. Bulan Ini</th>
+                                    <th colspan="2" class="px-2 py-2 text-center border-b border-white">Setahun</th>
+                                </tr>
+                                <tr>
+                                    <!-- Row 2: Sub-headers for production columns --><!-- Hari Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- S.d. Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Setahun --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white">RKAP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="afdeling-table-body">
+                            </tbody>
+                            <tfoot id="afdeling-table-foot" class="font-bold border-t-2 border-blue-200">
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Content Area 2: Mandor (Hidden by Default) --><div id="content-mandor" class="tab-content hidden">
+                        <table class="w-full text-sm text-left text-gray-700 border-collapse border border-gray-200">
+                            <thead class="text-xs text-white uppercase bg-blue-700">
+                                <tr>
+                                    <!-- Mandor (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-left align-middle border-b border-white border-r border-white">Mandor</th>
+                                    <!-- Luas (Ha) (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-center align-middle border-b border-white border-r border-white">Luas (Ha)</th>
+                                    
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Hari Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Bulan Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">S.d. Bulan Ini</th>
+                                    <th colspan="2" class="px-2 py-2 text-center border-b border-white">Setahun</th>
+                                </tr>
+                                <tr>
+                                    <!-- Row 2: Sub-headers for production columns --><!-- Hari Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- S.d. Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Setahun --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white">RKAP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mandor-table-body">
+                            </tbody>
+                            <tfoot id="mandor-table-foot" class="font-bold border-t-2 border-blue-200">
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Content Area 3: Asisten Afdeling (Hidden by Default) --><div id="content-asafdeling" class="tab-content hidden">
+                        <table class="w-full text-sm text-left text-gray-700 border-collapse border border-gray-200">
+                            <thead class="text-xs text-white uppercase bg-blue-700">
+                                <tr>
+                                    <!-- Asisten Afdeling (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-left align-middle border-b border-white border-r border-white">Asisten Afdeling</th>
+                                    <!-- Luas (Ha) (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-center align-middle border-b border-white border-r border-white">Luas (Ha)</th>
+                                    
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Hari Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Bulan Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">S.d. Bulan Ini</th>
+                                    <th colspan="2" class="px-2 py-2 text-center border-b border-white">Setahun</th>
+                                </tr>
+                                <tr>
+                                    <!-- Row 2: Sub-headers for production columns --><!-- Hari Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- S.d. Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Setahun --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white">RKAP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="asafdeling-table-body">
+                            </tbody>
+                            <tfoot id="asafdeling-table-foot" class="font-bold border-t-2 border-blue-200">
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Content Area 4: Tahun Tanam (Hidden by Default) -->
+                    <div id="content-tahun-tanam" class="tab-content hidden">
+                        <table class="w-full text-sm text-left text-gray-700 border-collapse border border-gray-200">
+                            <thead class="text-xs text-white uppercase bg-blue-700">
+                                <tr>
+                                    <!-- Tahun Tanam (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-left align-middle border-b border-white border-r border-white">Tahun Tanam</th>
+                                    <!-- Luas (Ha) (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-center align-middle border-b border-white border-r border-white">Luas (Ha)</th>
+                                    
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Hari Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Bulan Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">S.d. Bulan Ini</th>
+                                    <th colspan="2" class="px-2 py-2 text-center border-b border-white">Setahun</th>
+                                </tr>
+                                <tr>
+                                    <!-- Row 2: Sub-headers for production columns --><!-- Hari Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- S.d. Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Setahun --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white">RKAP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ttanam-table-body">
+                            </tbody>
+                            <tfoot id="ttanam-table-foot" class="font-bold border-t-2 border-blue-200">
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <!-- Content Area 5: Tapper (New) -->
+                    <div id="content-tapper" class="tab-content hidden">
+                        <table class="w-full text-sm text-left text-gray-700 border-collapse border border-gray-200">
+                            <thead class="text-xs text-white uppercase bg-blue-700">
+                                <tr>
+                                    <!-- R1, C1: Afdeling (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-left align-middle border-b border-white border-r border-white">Afdeling</th>
+                                    <!-- R1, C2: Mandor (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-left align-middle border-b border-white border-r border-white">Mandor</th>
+                                    
+                                    <!-- R1, C3: Hanca Wajib (Rowspan 2) --><th rowspan="2" class="px-2 py-2 text-center align-middle border-b border-white border-r border-white">Hanca Wajib</th>
+
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Hari Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">Bulan Ini</th>
+                                    <th colspan="3" class="px-2 py-2 text-center border-b border-white border-r border-white">S.d. Bulan Ini</th>
+                                    <th colspan="2" class="px-2 py-2 text-center border-b border-white">Setahun</th>
+                                </tr>
+                                <tr>
+                                    <!-- Row 2: Sub-headers for production columns --><!-- Hari Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- S.d. Bulan Ini --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2025</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white border-r border-white">RKAP</th>
+                                    <!-- Setahun --><th class="px-2 py-2 text-center border-b border-white border-r border-white">2024</th>
+                                    <th class="px-2 py-2 text-center border-b border-white">RKAP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tapper-table-body">
+                            </tbody>
+                            <tfoot id="tapper-table-foot" class="font-bold border-t-2 border-blue-200">
+                            </tfoot>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+            
+            <!-- CHART CONTAINER ROW (DIBUAT GRID 2 KOLOM) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                <!-- Chart 1: Produksi Bulanan (Left) -->
+                <div class="card"> 
+                    <div id="monthlyProductionChartContainer">
+                        <canvas id="monthlyProductionChart"></canvas>
+                    </div>
+                </div>
+                <!-- Chart 2: OHK Bulanan (Right) -->
+                <div class="card">
+                    <div id="monthlyOhkChartContainer">
+                        <canvas id="monthlyOhkChart"></canvas>
+                    </div>
+                </div>
+            </div></main>
     </div>
 
-    <!-- Header Filter -->
-    <div class="filter-header mb-6">
-        <h1>Dashboard Produksi Karet</h1>
-        <div class="date-filter">
-            <label for="date-selector">Filter Tanggal (YTD):</label>
-            <input type="date" id="date-selector">
-        </div>
-    </div>
-
-    <!-- Grid KPI -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-
-        <!-- KPI 1: Produksi Hari Ini (Kg) -->
-        <div class="kpi-card">
-            <h2 class="kpi-title"><i data-feather="package"></i>Produksi Hari Ini (Kg)</h2>
-            <div id="kpi-prod-today-value" class="kpi-value">0</div>
-            <div class="kpi-detail">
-                vs RKAP: <span id="kpi-prod-today-rkap" class="neutral">0</span> |
-                vs 2024: <span id="kpi-prod-today-2024" class="neutral">0</span>
-            </div>
-        </div>
-
-        <!-- KPI 2: Produksi Bulan Ini (YTD) -->
-        <div class="kpi-card">
-            <h2 class="kpi-title"><i data-feather="calendar"></i>Produksi s.d. Bulan Ini (Kg)</h2>
-            <div id="kpi-prod-ytd-value" class="kpi-value">0</div>
-            <div class="kpi-detail">
-                Pencapaian vs RKAP: <span id="kpi-prod-ytd-percent" class="kpi-percent neutral">0%</span>
-            </div>
-        </div>
-
-        <!-- KPI 3: OHK Hari Ini -->
-        <div class="kpi-card">
-            <h2 class="kpi-title"><i data-feather="users"></i>OHK Hari Ini</h2>
-            <div id="kpi-ohk-today-value" class="kpi-value">0</div>
-            <div class="kpi-detail">
-                vs RKAP: <span id="kpi-ohk-today-rkap" class="neutral">0</span> |
-                vs 2024: <span id="kpi-ohk-today-2024" class="neutral">0</span>
-            </div>
-        </div>
-
-        <!-- KPI 4: OHK s.d. Bulan Ini -->
-        <div class="kpi-card">
-            <h2 class="kpi-title"><i data-feather="briefcase"></i>OHK s.d. Bulan Ini</h2>
-            <div id="kpi-ohk-ytd-value" class="kpi-value">0</div>
-            <div class="kpi-detail">
-                Pencapaian vs RKAP: <span id="kpi-ohk-ytd-percent" class="kpi-percent neutral">0%</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Card Detail (Tabel & Tab) -->
-    <div class="detail-card mb-6">
-        <!-- Kontrol Tab -->
-        <div class="tab-controls">
-            <button id="tab-afdeling" class="tab-button active" data-target="content-afdeling">
-                <i data-feather="map-pin"></i>Per Afdeling
-            </button>
-            <button id="tab-mandor" class="tab-button" data-target="content-mandor">
-                <i data-feather="users"></i>Per Mandor
-            </button>
-            <button id="tab-asisten" class="tab-button" data-target="content-asisten">
-                <i data-feather="user"></i>Per Asisten Afdeling
-            </button>
-            <button id="tab-tahuntanam" class="tab-button" data-target="content-tahuntanam">
-                <i data-feather="calendar"></i>Per Tahun Tanam
-            </button>
-            <button id="tab-tapper" class="tab-button" data-target="content-tapper">
-                <i data-feather="tool"></i>Per Tapper
-            </button>
-        </div>
-
-        <!-- Konten Tab -->
-        <div class="tab-content active" id="content-afdeling">
-            <div class="table-wrapper">
-                <table class="data-table" id="afdeling-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Afdeling</th>
-                            <th rowspan="2">Luas (Ha)</th>
-                            <th colspan="2">Hari Ini (Kg)</th>
-                            <th colspan="2">Bulan Ini (Kg)</th>
-                            <th colspan="2">s.d. Bulan Ini (YTD) (Kg)</th>
-                            <th colspan="2">s.d. Tahun Ini (YTD) (%)</th>
-                        </tr>
-                        <tr>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                        </tr>
-                    </thead>
-                    <tbody id="afdeling-table-body">
-                        <!-- Data diisi oleh JavaScript -->
-                    </tbody>
-                    <tfoot id="afdeling-table-footer">
-                        <!-- Total diisi oleh JavaScript -->
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <div class="tab-content" id="content-mandor">
-            <div class="table-wrapper">
-                <table class="data-table" id="mandor-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Mandor</th>
-                            <th rowspan="2">Luas (Ha)</th>
-                            <th colspan="2">Hari Ini (Kg)</th>
-                            <th colspan="2">Bulan Ini (Kg)</th>
-                            <th colspan="2">s.d. Bulan Ini (YTD) (Kg)</th>
-                            <th colspan="2">s.d. Tahun Ini (YTD) (%)</th>
-                        </tr>
-                        <tr>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                        </tr>
-                    </thead>
-                    <tbody id="mandor-table-body">
-                        <!-- Data diisi oleh JavaScript -->
-                    </tbody>
-                    <tfoot id="mandor-table-footer">
-                        <!-- Total diisi oleh JavaScript -->
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <div class="tab-content" id="content-asisten">
-            <div class="table-wrapper">
-                <table class="data-table" id="asisten-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Asisten Afdeling</th>
-                            <th rowspan="2">Luas (Ha)</th>
-                            <th colspan="2">Hari Ini (Kg)</th>
-                            <th colspan="2">Bulan Ini (Kg)</th>
-                            <th colspan="2">s.d. Bulan Ini (YTD) (Kg)</th>
-                            <th colspan="2">s.d. Tahun Ini (YTD) (%)</th>
-                        </tr>
-                        <tr>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                        </tr>
-                    </thead>
-                    <tbody id="asisten-table-body">
-                        <!-- Data diisi oleh JavaScript -->
-                    </tbody>
-                    <tfoot id="asisten-table-footer">
-                        <!-- Total diisi oleh JavaScript -->
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <div class="tab-content" id="content-tahuntanam">
-            <div class="table-wrapper">
-                <table class="data-table" id="tahuntanam-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Tahun Tanam</th>
-                            <th rowspan="2">Luas (Ha)</th>
-                            <th colspan="2">Hari Ini (Kg)</th>
-                            <th colspan="2">Bulan Ini (Kg)</th>
-                            <th colspan="2">s.d. Bulan Ini (YTD) (Kg)</th>
-                            <th colspan="2">s.d. Tahun Ini (YTD) (%)</th>
-                        </tr>
-                        <tr>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tahuntanam-table-body">
-                        <!-- Data diisi oleh JavaScript -->
-                    </tbody>
-                    <tfoot id="tahuntanam-table-footer">
-                        <!-- Total diisi oleh JavaScript -->
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <div class="tab-content" id="content-tapper">
-            <div class="table-wrapper">
-                <table class="data-table" id="tapper-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Afdeling</th>
-                            <th rowspan="2">Mandor</th>
-                            <th rowspan="2">Hanca Wajib</th>
-                            <th colspan="2">Hari Ini (Kg)</th>
-                            <th colspan="2">Bulan Ini (Kg)</th>
-                            <th colspan="2">s.d. Bulan Ini (YTD) (Kg)</th>
-                            <th colspan="2">s.d. Tahun Ini (YTD) (%)</th>
-                        </tr>
-                        <tr>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                            <th>Aktual</th>
-                            <th>RKAP</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tapper-table-body">
-                        <!-- Data diisi oleh JavaScript -->
-                    </tbody>
-                    <tfoot id="tapper-table-footer">
-                        <!-- Total diisi oleh JavaScript -->
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Grid Chart -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <!-- Chart 1: Produksi Bulanan -->
-        <div class="chart-card">
-            <canvas id="produksiChart"></canvas>
-        </div>
-        <!-- Chart 2: OHK Bulanan -->
-        <div class="chart-card">
-            <canvas id="ohkChart"></canvas>
-        </div>
-    </div>
-
-
-    <!-- ============================================= -->
-    <!--           SCRIPT UTAMA DASHBOARD              -->
-    <!-- ============================================= -->
     <script>
-        /* ------------------------------------- */
-        /* Variabel Global             */
-        /* ------------------------------------- */
+        // Definisikan variabel data di luar scope
+        let allDailyData = []; // Data harian dari Sheet 1
+        let monthlyTargetData = {}; // Data target bulanan dari Sheet 2
+        
+        let dataBulanan = {}; // Hasil agregasi produksi 2025 dan RKAP 2025 (dari data harian)
+        let dataBulanan2024 = {}; // Hasil agregasi produksi 2024 (dari data target/historis)
+        
+        // Mock Harian untuk KPI
+        let MOCK_PROD_HARIAN_KG = 0; 
+        let MOCK_TARGET_HARIAN_KG = 0; 
+        let MOCK_TAHUN_LALU_HARIAN_KG = 0; 
 
-        // Variabel Chart (dideklarasikan global agar bisa di-destroy)
-        let prodChartInstance = null;
-        let ohkChartInstance = null;
-        let globalProcessedData = null; // Menyimpan data yang sudah diproses
+        // Data Mock Lainnya
+        let MOCK_AFD_DATA = [];
+        let MOCK_MANDOR_DATA = [];
+        let MOCK_ASAFDELING_DATA = [];
+        let TTANAM_DATA_ARRAY = [];
+        let MOCK_TAPPER_DATA = [];
+        let TOTAL_LUAS_KEBUN_HA = 0;
 
-        // Palet Warna
-        const WARNA_BIRU = '#3b82f6'; // Aktual 2025
-        const WARNA_ABU = '#9ca3af'; // Aktual 2024
-        const WARNA_MERAH = '#ef4444'; // RKAP
+        const labelsBulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
 
-        // Daftar Bulan (untuk label chart)
-        const BULAN_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        const WARNA_BIRU_SAPPHIRE = '#1d4ed8'; // blue-700
+        const WARNA_BIRU_MUDA = '#93c5fd'; // blue-300
+        const WARNA_ABU_ABU = '#6b7280'; // gray-500
+        const WARNA_MERAH = '#ef4444'; // red-500
 
-        /* ------------------------------------- */
-        /* Fungsi Inisialisasi            */
-        /* ------------------------------------- */
+        const WARNA_SUPER = 'rgba(59, 130, 246, 0.9)'; // blue-500 
+        const WARNA_INFER = 'rgba(234, 179, 8, 0.9)'; // yellow-500 
+        const WARNA_RAT2 = 'rgba(239, 68, 68, 0.9)'; // red-500 
 
-        // Event listener utama yang dijalankan saat DOM siap
-        document.addEventListener('DOMContentLoaded', () => {
-            // Inisialisasi ikon
-            feather.replace();
+        const WARNA_HANCWAJIB = WARNA_SUPER;
+        const WARNA_NONHANCA = WARNA_INFER;
+        const WARNA_PERAWATAN = WARNA_RAT2;
 
-            // Set tanggal filter hari ini
-            initializeDateFilter();
+        // Variabel global untuk chart
+        let monthlyChart = null;
+        let monthlyOhkChart = null; 
 
-            // Tambah event listener untuk filter tanggal
-            document.getElementById('date-selector').addEventListener('change', (e) => {
-                const selectedDate = e.target.value;
-                if (globalProcessedData) {
-                    // Jika data sudah ada, proses ulang (filter) tanpa fetch
-                    console.log(`Memfilter ulang data untuk tanggal: ${selectedDate}`);
-                    const filteredData = filterDataByDate(globalProcessedData, selectedDate);
-                    updateAllUI(filteredData, selectedDate);
-                } else {
-                    // Jika data belum ada (jarang terjadi, tapi sbg fallback)
-                    console.log(`Data global belum ada, mengambil data baru untuk: ${selectedDate}`);
-                    fetchDataAndInitialize(selectedDate);
-                }
-            });
+        // ------------------------------------------------
+        // HELPER FUNCTIONS
+        // ------------------------------------------------
+        
+        const formatAngkaSingkat = v => {
+            v = Math.abs(Math.round(v));
+            if (v >= 1000000) {
+                return (v / 1000000).toFixed(1).replace(/\.0$/, '') + ' Jt';
+            }
+            if (v >= 10000) { 
+                return (v / 1000).toFixed(0) + ' Rb';
+            }
+            return v.toLocaleString('id-ID');
+        };
 
-            // Tambah event listener untuk Tab
-            setupTabControls();
-
-            // Ambil data dan inisialisasi dashboard
-            fetchDataAndInitialize(document.getElementById('date-selector').value);
+        const formatAngka = v => Math.round(v).toLocaleString('id-ID');
+        const formatPersen = v => `${v.toFixed(1)}%`;
+        const formatLuasHa = v => v.toLocaleString('id-ID', { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
         });
+        const formatHancaWajib = v => Math.round(v).toLocaleString('id-ID');
 
-        /*
-         * Mengambil data dan memulai update UI
-         */
-        async function fetchDataAndInitialize(filterTanggal) {
-            try {
-                // Tampilkan loading
-                document.getElementById('loading-overlay').classList.remove('hidden');
-
-                // 1. Ambil dan proses data
-                const rawData = await fetchDataFromSheet();
-                
-                // 2. Simpan data mentah yang sudah diproses (untuk filter nanti)
-                globalProcessedData = processRawData(rawData, filterTanggal); 
-
-                // 3. Filter data berdasarkan tanggal yang dipilih
-                const filteredData = filterDataByDate(globalProcessedData, filterTanggal);
-                
-                // 4. Update seluruh UI
-                updateAllUI(filteredData, filterTanggal);
-
-            } catch (error) {
-                console.error("GAGAL TOTAL:", error.message);
-                // Coba tampilkan data mock jika fetch gagal
-                try {
-                    console.warn("Mencoba memuat data cadangan (mock)...");
-                    const mockData = getMockData(); // Ambil mock data
-                    globalProcessedData = processRawData(mockData, filterTanggal);
-                    const filteredMockData = filterDataByDate(globalProcessedData, filterTanggal);
-                    updateAllUI(filteredMockData, filterTanggal);
-                } catch (mockError) {
-                    console.error("Gagal memuat data cadangan:", mockError.message);
-                    alert("Gagal memuat data dashboard. Silakan periksa koneksi atau format data di Google Sheet.");
-                }
-
-            } finally {
-                // Selalu sembunyikan loading
-                setTimeout(() => {
-                    document.getElementById('loading-overlay').classList.add('hidden');
-                }, 300); // Kasih jeda sedikit
+        function renderPerbandinganAfdeling(real, target, label = '') {
+            if (target === 0 || real === 0) {
+                return `<span class="sub-pct text-gray-400">-</span>`;
             }
-        }
-
-        /*
-         * Memperbarui semua komponen UI (KPI, Chart, Tabel)
-         */
-        function updateAllUI(data, filterTanggal) {
-            // Ambil data KPI yang sudah diagregasi
-            const kpiData = data.kpi;
-            const filterDateObj = new Date(filterTanggal + 'T00:00:00'); // Set zona waktu lokal
-            const filterBulan = filterDateObj.getMonth(); // 0-11
-            const filterTahun = filterDateObj.getFullYear();
-
-            // 1. Update KPI
-            updateKPIs(kpiData);
-
-            // 2. Update Chart
-            renderMonthlyChart(data.bulanan.produksi, filterBulan, filterTahun);
-            renderOHKChart(data.bulanan.ohk, filterBulan, filterTahun);
-
-            // 3. Update Tabel Detail (berdasarkan data YTD yang sudah difilter)
-            updateDetailTable('#afdeling-table', data.details.afdeling);
-            updateDetailTable('#mandor-table', data.details.mandor);
-            updateDetailTable('#asisten-table', data.details.asisten);
-            updateDetailTable('#tahuntanam-table', data.details.tahuntanam);
-            updateTapperTable(data.details.tapper);
-        }
-
-
-        /* ------------------------------------- */
-        /* Fungsi Utilitas             */
-        /* ------------------------------------- */
-
-        /*
-         * Inisialisasi filter tanggal ke hari ini
-         */
-        function initializeDateFilter() {
-            const dateInput = document.getElementById('date-selector');
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = (today.getMonth() + 1).toString().padStart(2, '0');
-            const day = today.getDate().toString().padStart(2, '0');
-            dateInput.value = `${year}-${month}-${day}`;
-        }
-
-        /*
-         * Setup kontrol tab
-         */
-        function setupTabControls() {
-            const tabs = document.querySelectorAll('.tab-button');
-            const contents = document.querySelectorAll('.tab-content');
-
-            tabs.forEach(tab => {
-                tab.addEventListener('click', (e) => {
-                    // Dapatkan target dari tombol (currentTarget)
-                    const targetId = e.currentTarget.getAttribute('data-target');
-                    
-                    // Hapus aktif dari semua tab
-                    tabs.forEach(t => t.classList.remove('active'));
-                    // Tambah aktif ke tab yang diklik
-                    e.currentTarget.classList.add('active');
-
-                    // Sembunyikan semua konten
-                    contents.forEach(c => c.classList.remove('active'));
-                    // Tampilkan konten yang sesuai
-                    const targetContent = document.getElementById(targetId);
-                    if (targetContent) {
-                        targetContent.classList.add('active');
-                    }
-
-                    // Render ulang ikon (penting jika ikon ada di konten tab)
-                    feather.replace();
-                });
-            });
-        }
-
-        /*
-         * Format angka (Contoh: 1234567 -> "1.234.567")
-         */
-        function formatAngka(num) {
-            if (num === null || num === undefined || isNaN(num)) {
-                return "0";
-            }
-            return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        }
-
-        /*
-         * Format angka singkat (Contoh: 120000 -> 120 Rb)
-         */
-        function formatAngkaSingkat(num) {
-            if (num === null || num === undefined || isNaN(num)) {
-                return "0";
-            }
-            num = Math.round(num);
-            if (num >= 1000000000) {
-                return (num / 1000000000).toFixed(1).replace('.', ',') + ' M';
-            }
-            if (num >= 1000000) {
-                return (num / 1000000).toFixed(1).replace('.', ',') + ' Jt';
-            }
-            if (num >= 1000) {
-                return (num / 1000).toFixed(0) + ' Rb';
-            }
-            return num.toString();
-        }
-
-
-        /*
-         * Hitung persentase (Contoh: (50, 100) -> 50.0)
-         */
-        function hitungPersen(aktual, target) {
-            if (target === 0 || target === null || target === undefined || isNaN(target)) {
-                return 0; // Hindari pembagian dengan nol
-            }
-            return ((aktual / target) * 100);
-        }
-
-        /*
-         * Helper untuk update kelas CSS persentase (positif/negatif)
-         */
-        function updatePercentClass(element, percent) {
-            element.classList.remove('positive', 'negative', 'neutral');
-            if (percent >= 100) {
-                element.classList.add('positive');
-            } else if (percent > 0) {
-                element.classList.add('negative');
-            } else {
-                element.classList.add('neutral');
-            }
-            element.textContent = `${percent.toFixed(1).replace('.', ',')}%`;
-        }
-
-        /*
-         * Helper untuk update kelas CSS perbandingan (vs 2024 / vs RKAP)
-         */
-        function updateComparisonClass(element, aktual, banding) {
-            element.classList.remove('positive', 'negative', 'neutral');
-            const selisih = aktual - banding;
-            if (selisih > 0) {
-                element.classList.add('positive');
-                element.textContent = `+${formatAngka(selisih)}`;
-            } else if (selisih < 0) {
-                element.classList.add('negative');
-                element.textContent = `${formatAngka(selisih)}`; // Sudah ada minus
-            } else {
-                element.classList.add('neutral');
-                element.textContent = `0`;
-            }
-        }
-
-        /*
-         * Mem-parse string CSV menjadi array objek.
-         * @param {string} csvText - Teks CSV mentah.
-         * @returns {Array<Object>} Array objek data.
-         */
-        function parseCSV(csvText) {
-            try {
-                const lines = csvText.replace(/\r/g, '').split('\n'); // Bersihkan karakter carriage return
-                if (lines.length === 0) return [];
-
-                // Ambil header, bersihkan dari spasi atau karakter aneh
-                const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-                const data = [];
-
-                // Loop dari baris 1 (data)
-                for (let i = 1; i < lines.length; i++) {
-                    
-                    // --- PERBAIKAN: Melewatkan baris kosong atau tidak valid ---
-                    if (!lines[i] || lines[i].trim().length === 0) {
-                        // console.warn(`Melewatkan baris data ${i}: Baris kosong.`);
-                        continue; // Lewati baris ini
-                    }
-                    
-                    const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-
-                    // --- PERBAIKAN: Melewatkan baris jika jumlah kolom tidak cocok ---
-                    if (values.length !== headers.length) {
-                        console.warn(`Melewatkan baris data ${i}: Jumlah kolom (${values.length}) tidak cocok dengan header (${headers.length}). Data: ${lines[i]}`);
-                        continue; // Lewati baris ini
-                    }
-
-                    let obj = {};
-                    let isEmptyRow = true; // Tandai jika semua nilai kosong
-                    for (let j = 0; j < headers.length; j++) {
-                        const key = headers[j];
-                        const value = values[j];
-                        obj[key] = value;
-                        if (value && value.length > 0) {
-                            isEmptyRow = false;
-                        }
-                    }
-
-                    // Jangan tambahkan jika barisnya benar-benar kosong setelah di-parse
-                    if (!isEmptyRow) {
-                        data.push(obj);
-                    } else {
-                        // console.warn(`Melewatkan baris data ${i}: Baris terdeteksi kosong setelah parse.`);
-                    }
-                }
-                return data;
-            } catch (error) {
-                console.error("Kesalahan saat parsing CSV:", error.message);
-                throw new Error(`Gagal mem-parsing CSV. Pastikan format data dan header sudah benar. Error: ${error.message}`);
-            }
-        }
-
-        /*
-         * Fungsi helper untuk membuat entri detail (struktur data).
-         * Pindahkan ke scope global agar bisa diakses oleh processRawData dan updateDetailTable.
-         */
-        function createDetailEntry(luas) {
-            return {
-                luasHa: luas,
-                todayAktual: 0, todayRKAP: 0,
-                monthAktual: 0, monthRKAP: 0,
-                ytdAktual: 0, ytdRKAP: 0,
-                yearAktual: 0, yearRKAP: 0, // yearRKAP diambil dari YTD bulanan
-                hancaWajib: 0 // Khusus tapper
-            };
-        }
-
-
-        /* ------------------------------------- */
-        /* Fungsi Pengambilan Data        */
-        /* ------------------------------------- */
-
-        /*
-         * Mengambil data dari Google Sheet (atau Mock jika gagal)
-         */
-        async function fetchDataFromSheet() {
-            // Tampilkan loading overlay
-            document.getElementById('loading-overlay').classList.remove('hidden');
-
-            // URL Google Sheet LIVE Anda (diambil dari GID dan ID Sheet)
-            // PASTIKAN INI ADALAH URL PUBLIKASI CSV ANDA
-            const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjNtFERkivPI8-gwiXCdCVOSGKAWB4FF-UbKj-Q4LzOTCzBX44eI_kV2q2qLxj1q_5c-cyfysqOaSU/pub?gid=142978215&single=true&output=csv';
+            const pct = (real / target - 1) * 100;
+            const positive = pct >= 0;
+            const sign = positive ? '+' : '';
+            const colorClass = positive ? 'text-green-600' : 'text-red-600';
+            const iconName = positive ? 'trending-up' : 'trending-down';
             
-            console.log("Mencoba mengambil data dari:", SHEET_URL);
+            const labelHtml = label ? `<span class="text-gray-500">${label}: </span>` : '';
 
-            try {
-                const response = await fetch(SHEET_URL, {
-                    method: 'GET',
-                    redirect: 'follow' // Penting untuk Google Sheets
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Gagal mengambil data dari Google Sheet. Status: ${response.status} ${response.statusText}`);
-                }
-
-                const csvText = await response.text();
-                
-                if (!csvText || csvText.length === 0) {
-                     throw new Error("Data CSV yang diterima kosong. Periksa publikasi Google Sheet.");
-                }
-
-                console.log("Berhasil mengambil data CSV, ukuran:", csvText.length);
-                
-                const jsonData = parseCSV(csvText);
-                
-                if (jsonData.length === 0) {
-                    throw new Error("Data CSV berhasil di-parse, namun hasilnya kosong. Periksa isi Google Sheet.");
-                }
-
-                console.log(`Berhasil mem-parsing ${jsonData.length} baris data.`);
-                return jsonData;
-
-            } catch (error) {
-                console.error("Gagal mengambil data live:", error.message);
-                throw error; // Lemparkan error agar ditangkap oleh fetchDataAndInitialize
-            }
+            return `<span class="sub-pct ${colorClass} flex items-center justify-end gap-1">
+                        ${labelHtml}
+                        <i data-feather="${iconName}" class="w-3 h-3"></i>
+                        ${sign}${pct.toFixed(1)}%
+                    </span>`;
         }
 
-        /*
-         * Menyediakan data cadangan (mock) jika fetch gagal
-         */
-        function getMockData() {
-            console.warn("MENGGUNAKAN DATA CADANGAN (MOCK)");
-            // Menyediakan beberapa baris data harian sebagai cadangan
-            // Pastikan header (key) SAMA PERSIS dengan panduan_sheets.md
-            return [
-                {
-                    Tanggal: "2025-01-01", Prod_Kg: "5000", OHK: "200", Afdeling: "A", Mandor: "Mandor 1", Tapper: "T001", LuasHa: "100.5", Tahun_Tanam: "2018", Asisten_Afdeling: "Asisten 1",
-                    RKAP_Harian: "4800", Prod_2024_Harian: "4900", RKAP_Harian_OHK: "190", OHK_2024_Harian: "195",
-                    RKAP_2025_YTD: "150000", Target_2024_YTD: "140000", RKAP_2025_OHK_YTD: "6000", Target_2024_OHK_YTD: "5800"
-                },
-                {
-                    Tanggal: "2025-01-01", Prod_Kg: "4000", OHK: "180", Afdeling: "B", Mandor: "Mandor 2", Tapper: "T002", LuasHa: "90.2", Tahun_Tanam: "2019", Asisten_Afdeling: "Asisten 2",
-                    RKAP_Harian: "4000", Prod_2024_Harian: "4100", RKAP_Harian_OHK: "170", OHK_2024_Harian: "175",
-                    RKAP_2025_YTD: "150000", Target_2024_YTD: "140000", RKAP_2025_OHK_YTD: "6000", Target_2024_OHK_YTD: "5800"
-                },
-                {
-                    Tanggal: "2025-01-02", Prod_Kg: "5100", OHK: "210", Afdeling: "A", Mandor: "Mandor 1", Tapper: "T001", LuasHa: "100.5", Tahun_Tanam: "2018", Asisten_Afdeling: "Asisten 1",
-                    RKAP_Harian: "4800", Prod_2024_Harian: "4950", RKAP_Harian_OHK: "190", OHK_2024_Harian: "195",
-                    RKAP_2025_YTD: "150000", Target_2024_YTD: "140000", RKAP_2025_OHK_YTD: "6000", Target_2024_OHK_YTD: "5800"
-                },
-                {
-                    Tanggal: "2025-02-01", Prod_Kg: "6000", OHK: "220", Afdeling: "A", Mandor: "Mandor 1", Tapper: "T003", LuasHa: "100.5", Tahun_Tanam: "2018", Asisten_Afdeling: "Asisten 1",
-                    RKAP_Harian: "5800", Prod_2024_Harian: "5900", RKAP_Harian_OHK: "210", OHK_2024_Harian: "215",
-                    RKAP_2025_YTD: "140000", Target_2024_YTD: "130000", RKAP_2025_OHK_YTD: "5500", Target_2024_OHK_YTD: "5300"
-                },
-                 {
-                    Tanggal: "2025-02-01", Prod_Kg: "4500", OHK: "190", Afdeling: "B", Mandor: "Mandor 2", Tapper: "T004", LuasHa: "90.2", Tahun_Tanam: "2019", Asisten_Afdeling: "Asisten 2",
-                    RKAP_Harian: "4500", Prod_2024_Harian: "4600", RKAP_Harian_OHK: "180", OHK_2024_Harian: "185",
-                    RKAP_2025_YTD: "140000", Target_2024_YTD: "130000", RKAP_2025_OHK_YTD: "5500", Target_2024_OHK_YTD: "5300"
-                }
-            ];
-        }
+        function renderComparisonLine(actualKg, currentKg, label) {
+            const diffKg = currentKg - actualKg;
+            const diffPct = actualKg > 0 ? (diffKg / actualKg) * 100 : 0;
 
-
-        /* ------------------------------------- */
-        /* Fungsi Pemrosesan Data         */
-        /* ------------------------------------- */
-
-        /*
-         * Mengubah data mentah (array) menjadi struktur data siap pakai.
-         * Ini hanya dijalankan sekali saat fetch awal.
-         * @param {Array<Object>} data - Data mentah dari CSV.
-         * @param {string} filterTanggal - Tanggal (YYYY-MM-DD).
-         * @returns {Object} Data yang sudah diproses.
-         */
-        function processRawData(data, filterTanggal) {
-            console.log("Memulai pemrosesan data mentah...");
+            const positive = diffPct >= 0;
+            const signPct = diffPct >= 0 ? '+' : '';
+            const signKg = diffKg >= 0 ? '+' : '';
             
-            const processedData = {
-                kpi: {
-                    today: { prodAktual: 0, prodRKAP: 0, prod2024: 0, ohkAktual: 0, ohkRKAP: 0, ohk2024: 0 },
-                    ytd: { prodAktual: 0, prodRKAP: 0, prod2024: 0, ohkAktual: 0, ohkRKAP: 0, ohk2024: 0 }
-                },
-                bulanan: {
-                    produksi: Array(12).fill(null).map(() => ({ aktual: 0, rkap: 0, prevYear: 0 })),
-                    ohk: Array(12).fill(null).map(() => ({ aktual: 0, rkap: 0, prevYear: 0 }))
-                },
-                details: {
-                    afdeling: {},
-                    mandor: {},
-                    asisten: {},
-                    tahuntanam: {},
-                    tapper: {}
-                }
+            const colorClass = positive ? 'text-green-600' : 'text-red-600';
+            const iconName = positive ? 'trending-up' : 'trending-down'; 
+            
+            const formattedActualKg = formatAngka(actualKg);
+            const formattedDiffPctAbs = Math.abs(diffPct).toFixed(1);
+            const formattedDiffKgAbs = formatAngkaSingkat(Math.abs(diffKg)); 
+
+            return `<div class="flex flex-col text-gray-700">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">${label}: <span class="font-bold">${formattedActualKg}</span> Kg</span>
+                            <span class="${colorClass} flex items-center font-semibold gap-1">
+                                <i data-feather="${iconName}" class="w-3 h-3 ${colorClass}"></i>
+                                ${signPct}${formattedDiffPctAbs}%
+                                <span class="diff-kg-text">(${signKg}${formattedDiffKgAbs} Kg)</span>
+                            </span>
+                        </div>
+                    </div>`;
+        }
+
+        function updateButtonStates(dateFilter) {
+            const curDateStr = dateFilter.value;
+            const minDateStr = dateFilter.min;
+            const maxDateStr = dateFilter.max;
+
+            const curDate = new Date(curDateStr + 'T00:00:00Z');
+            const minDate = new Date(minDateStr + 'T00:00:00Z');
+            const maxDate = new Date(maxDateStr + 'T00:00:00Z');
+
+            const prevBtn = document.getElementById('prev-date');
+            const nextBtn = document.getElementById('next-date');
+            
+            const isAtMin = curDate.getTime() <= minDate.getTime();
+            const isAtMax = curDate.getTime() >= maxDate.getTime();
+
+            prevBtn.disabled = isAtMin;
+            nextBtn.disabled = isAtMax;
+        }
+        
+        /**
+         * Menggambar atau memperbarui chart produksi bulanan.
+         */
+        function renderMonthlyChart(bulanIndex) {
+            const ctx = document.getElementById('monthlyProductionChart').getContext('2d');
+            const maxMonth = bulanIndex + 1; 
+            const labels = labelsBulan.slice(0, maxMonth);
+            
+            const data2025 = [];
+            const data2024 = [];
+            const dataRkap = [];
+
+            for (let i = 0; i < maxMonth; i++) {
+                const key = `${String(i + 1).padStart(2, '0')}`;
+                
+                // Ambil data yang sudah diolah
+                data2025.push(dataBulanan[key]?.prod || 0);
+                dataRkap.push(dataBulanan[key]?.rkap || 0); // RKAP 2025
+                data2024.push(dataBulanan2024[key]?.prod || 0); // Prod 2024
+            }
+
+            const data = {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'RKAP',
+                        data: dataRkap,
+                        backgroundColor: WARNA_MERAH, 
+                        borderColor: WARNA_MERAH,
+                        type: 'line', 
+                        borderDash: [5, 5],
+                        borderWidth: 3, 
+                        pointRadius: 4, 
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '2024 (Actual)',
+                        data: data2024,
+                        backgroundColor: WARNA_BIRU_MUDA, 
+                        borderColor: WARNA_BIRU_MUDA,
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                        order: 2,
+                        type: 'bar',
+                    },
+                    {
+                        label: '2025 (Actual)',
+                        data: data2025,
+                        backgroundColor: WARNA_BIRU_SAPPHIRE, 
+                        borderColor: WARNA_BIRU_SAPPHIRE,
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                        order: 1,
+                        type: 'bar',
+                    }
+                ]
             };
 
-            const uniqueAfdeling = {};
-            const uniqueMandor = {};
-            const uniqueAsisten = {};
-            const uniqueTahunTanam = {};
-            const uniqueTapper = {};
-
-            // 1. Inisialisasi struktur detail (berdasarkan data unik)
-            data.forEach(row => {
-                const luas = parseFloat(row.LuasHa) || 0;
-
-                if (row.Afdeling && !uniqueAfdeling[row.Afdeling]) {
-                    uniqueAfdeling[row.Afdeling] = { luas: 0 };
-                }
-                if (row.Afdeling) uniqueAfdeling[row.Afdeling].luas += luas; // Ini akan menjumlahkan jika ada duplikat, perlu penanganan unik
-
-                if (row.Mandor && !uniqueMandor[row.Mandor]) {
-                    uniqueMandor[row.Mandor] = { luas: 0 };
-                }
-                if (row.Mandor) uniqueMandor[row.Mandor].luas += luas;
-
-                if (row.Asisten_Afdeling && !uniqueAsisten[row.Asisten_Afdeling]) {
-                    uniqueAsisten[row.Asisten_Afdeling] = { luas: 0 };
-                }
-                if (row.Asisten_Afdeling) uniqueAsisten[row.Asisten_Afdeling].luas += luas;
-
-                if (row.Tahun_Tanam && !uniqueTahunTanam[row.Tahun_Tanam]) {
-                    uniqueTahunTanam[row.Tahun_Tanam] = { luas: 0 };
-                }
-                if (row.Tahun_Tanam) uniqueTahunTanam[row.Tahun_Tanam].luas += luas;
-                
-                const tapperKey = `${row.Afdeling}-${row.Mandor}-${row.Tapper}`;
-                 if (row.Tapper && !uniqueTapper[tapperKey]) {
-                    uniqueTapper[tapperKey] = { 
-                        afdeling: row.Afdeling, 
-                        mandor: row.Mandor, 
-                        tapper: row.Tapper, 
-                        hanca: 0, // Hanca Wajib (asumsi 0 jika tidak ada)
-                        luas: 0 
-                    };
-                }
-                // (Catatan: Hanca wajib dan luas per tapper perlu di-handle khusus jika datanya ada)
-            });
-
-            // Inisialisasi struktur detail dari data unik
-            Object.keys(uniqueAfdeling).forEach(key => {
-                processedData.details.afdeling[key] = createDetailEntry(uniqueAfdeling[key].luas);
-            });
-            Object.keys(uniqueMandor).forEach(key => {
-                processedData.details.mandor[key] = createDetailEntry(uniqueMandor[key].luas);
-            });
-             Object.keys(uniqueAsisten).forEach(key => {
-                processedData.details.asisten[key] = createDetailEntry(uniqueAsisten[key].luas);
-            });
-             Object.keys(uniqueTahunTanam).forEach(key => {
-                processedData.details.tahuntanam[key] = createDetailEntry(uniqueTahunTanam[key].luas);
-            });
-             Object.keys(uniqueTapper).forEach(key => {
-                const t = uniqueTapper[key];
-                processedData.details.tapper[key] = createDetailEntry(t.luas);
-                processedData.details.tapper[key].afdeling = t.afdeling;
-                processedData.details.tapper[key].mandor = t.mandor;
-                processedData.details.tapper[key].tapper = t.tapper;
-                processedData.details.tapper[key].hancaWajib = t.hanca;
-            });
-            
-            // 2. Simpan data bulanan (Target & 2024)
-            // Ini akan mengambil nilai YTD/Bulanan dari baris data terakhir per bulan
-            const bulananMemory = {};
-            data.forEach(row => {
-                try {
-                    const rowDate = new Date(row.Tanggal + 'T00:00:00');
-                    const bulan = rowDate.getMonth(); // 0-11
-                    const tahun = rowDate.getFullYear();
-                    
-                    if (tahun < 2025) return; // Hanya proses data 2025
-
-                    const key = `${tahun}-${bulan}`;
-                    
-                    // Kita asumsikan data _YTD sama untuk semua baris di bulan yg sama
-                    if (!bulananMemory[key]) {
-                        bulananMemory[key] = true; // Tandai bulan ini sudah diproses
-
-                        const prodRKAP = parseFloat(row.RKAP_2025_YTD) || 0;
-                        const prod2024 = parseFloat(row.Target_2024_YTD) || 0;
-                        const ohkRKAP = parseFloat(row.RKAP_2025_OHK_YTD) || 0;
-                        const ohk2024 = parseFloat(row.Target_2024_OHK_YTD) || 0;
-
-                        // Simpan target bulanan penuh
-                        processedData.bulanan.produksi[bulan].rkap = prodRKAP;
-                        processedData.bulanan.produksi[bulan].prevYear = prod2024;
-                        processedData.bulanan.ohk[bulan].rkap = ohkRKAP;
-                        processedData.bulanan.ohk[bulan].prevYear = ohk2024;
-                    }
-
-                    // 3. Akumulasi data aktual (YTD)
-                    // (Ini akan menjumlahkan data harian 2025)
-                    const prodAktual = parseFloat(row.Prod_Kg) || 0;
-                    const ohkAktual = parseFloat(row.OHK) || 0;
-                    
-                    processedData.bulanan.produksi[bulan].aktual += prodAktual;
-                    processedData.bulanan.ohk[bulan].aktual += ohkAktual;
-
-                } catch (e) {
-                    console.warn(`Gagal memproses baris data bulanan: ${e.message}`, row);
-                }
-            });
-
-            // 4. Simpan data mentah (harian) untuk filtering
-            // (Kita tambahkan data mentah ke objek)
-            processedData.harian = data;
-
-            console.log("Selesai memproses data mentah.", processedData);
-            return processedData;
-        }
-
-        /*
-         * Memfilter data yang sudah diproses berdasarkan tanggal
-         * @param {Object} processedData - Data dari processRawData()
-         * @param {string} filterTanggal - Tanggal (YYYY-MM-DD)
-         * @returns {Object} Data yang sudah difilter siap untuk UI
-         */
-        function filterDataByDate(processedData, filterTanggal) {
-            console.log(`Memulai filter untuk tanggal: ${filterTanggal}`);
-
-            // Buat salinan (deep copy) agar tidak mengubah data global
-            let filteredData = JSON.parse(JSON.stringify(processedData));
-            
-            // Reset KPI dan Detail ke 0 sebelum diisi ulang
-            filteredData.kpi = {
-                today: { prodAktual: 0, prodRKAP: 0, prod2024: 0, ohkAktual: 0, ohkRKAP: 0, ohk2024: 0 },
-                ytd: { prodAktual: 0, prodRKAP: 0, prod2024: 0, ohkAktual: 0, ohkRKAP: 0, ohk2024: 0 }
-            };
-            Object.keys(filteredData.details).forEach(tipe => {
-                 Object.keys(filteredData.details[tipe]).forEach(key => {
-                    const entry = filteredData.details[tipe][key];
-                    // Reset angka, tapi pertahankan info (afdeling, mandor, luas)
-                    entry.todayAktual = 0; entry.todayRKAP = 0;
-                    entry.monthAktual = 0; entry.monthRKAP = 0;
-                    entry.ytdAktual = 0; entry.ytdRKAP = 0;
-                    entry.yearAktual = 0; entry.yearRKAP = 0;
-                    entry.hancaWajib = 0; 
-                 });
-            });
-
-            const filterDateObj = new Date(filterTanggal + 'T00:00:00');
-            const filterBulan = filterDateObj.getMonth(); // 0-11
-            const filterTahun = filterDateObj.getFullYear();
-            const filterTglString = filterTanggal;
-
-            // Loop data harian (dari data global)
-            processedData.harian.forEach(row => {
-                const rowDate = new Date(row.Tanggal + 'T00:00:00');
-                const rowBulan = rowDate.getMonth();
-                const rowTahun = rowDate.getFullYear();
-
-                if (rowTahun !== filterTahun) return; // Hanya proses tahun yang difilter
-
-                // Konversi data mentah (string) ke angka (float)
-                const prodAktual = parseFloat(row.Prod_Kg) || 0;
-                const prodRKAP = parseFloat(row.RKAP_Harian) || 0;
-                const prod2024 = parseFloat(row.Prod_2024_Harian) || 0;
-                
-                const ohkAktual = parseFloat(row.OHK) || 0;
-                const ohkRKAP = parseFloat(row.RKAP_Harian_OHK) || 0;
-                const ohk2024 = parseFloat(row.OHK_2024_Harian) || 0;
-
-                const hancaWajib = parseFloat(row.Hanca_Wajib) || 0; // Jika ada
-
-                // 1. Hitung KPI "Hari Ini" (Hanya jika tanggalnya cocok)
-                if (row.Tanggal === filterTglString) {
-                    filteredData.kpi.today.prodAktual += prodAktual;
-                    filteredData.kpi.today.prodRKAP += prodRKAP;
-                    filteredData.kpi.today.prod2024 += prod2024;
-                    filteredData.kpi.today.ohkAktual += ohkAktual;
-                    filteredData.kpi.today.ohkRKAP += ohkRKAP;
-                    filteredData.kpi.today.ohk2024 += ohk2024;
-                }
-
-                // 2. Hitung KPI YTD (Akumulasi s.d. tanggal filter)
-                if (rowDate <= filterDateObj) {
-                    filteredData.kpi.ytd.prodAktual += prodAktual;
-                    filteredData.kpi.ytd.ohkAktual += ohkAktual;
-                    
-                    // (Target YTD diambil dari data bulanan di bawah)
-                }
-
-                // 3. Hitung Data Detail (Afdeling, Mandor, dll)
-                const afd = row.Afdeling;
-                const mdr = row.Mandor;
-                const asf = row.Asisten_Afdeling;
-                const tt = row.Tahun_Tanam;
-                const tapperKey = `${row.Afdeling}-${row.Mandor}-${row.Tapper}`;
-
-                // Loop untuk mengisi semua detail
-                [afd, mdr, asf, tt, tapperKey].forEach((key, index) => {
-                    let detailType;
-                    switch (index) {
-                        case 0: detailType = 'afdeling'; break;
-                        case 1: detailType = 'mandor'; break;
-                        case 2: detailType = 'asisten'; break;
-                        case 3: detailType = 'tahuntanam'; break;
-                        case 4: detailType = 'tapper'; break;
-                    }
-                    
-                    const entry = filteredData.details[detailType][key];
-                    
-                    if (entry) {
-                        // Hari Ini
-                        if (row.Tanggal === filterTglString) {
-                            entry.todayAktual += prodAktual;
-                            entry.todayRKAP += prodRKAP;
-                            if (detailType === 'tapper') entry.hancaWajib = hancaWajib; // Ambil Hanca Wajib hari ini
-                        }
-                        
-                        // Bulan Ini
-                        if (rowBulan === filterBulan) {
-                            entry.monthAktual += prodAktual;
-                            entry.monthRKAP += prodRKAP; // Asumsi RKAP harian
-                        }
-                        
-                        // YTD (s.d. Tanggal Filter)
-                        if (rowDate <= filterDateObj) {
-                            entry.ytdAktual += prodAktual;
-                            entry.ytdRKAP += prodRKAP; // Akumulasi RKAP harian
-                        }
-                    }
-                });
-            });
-
-            // 4. Hitung Target YTD (KPI & Detail)
-            // (Akumulasi dari target bulanan penuh di data bulanan)
-            for (let i = 0; i <= filterBulan; i++) {
-                // KPI YTD
-                filteredData.kpi.ytd.prodRKAP += filteredData.bulanan.produksi[i].rkap;
-                filteredData.kpi.ytd.prod2024 += filteredData.bulanan.produksi[i].prevYear;
-                filteredData.kpi.ytd.ohkRKAP += filteredData.bulanan.ohk[i].rkap;
-                filteredData.kpi.ytd.ohk2024 += filteredData.bulanan.ohk[i].prevYear;
-                
-                // (Catatan: Ini akan mengambil target YTD penuh s.d. akhir bulan filter)
-                // (Jika ingin apple-to-apple, kita harus menjumlahkan RKAP harian di loop sebelumnya)
-                // (Saat ini, KPI YTD membandingkan Aktual Harian vs Target RKAP Harian)
-                // (Dan KPI YTD Persen membandingkan Aktual YTD vs RKAP Bulanan YTD)
-                
-                // Mari kita sesuaikan agar KPI YTD (angka) juga menggunakan RKAP Harian
-                // Biarkan seperti ini dulu (Aktual YTD vs RKAP YTD Bulanan)
-            }
-
-            console.log("Selesai filter data.", filteredData);
-            return filteredData;
-        }
-
-
-        /* ------------------------------------- */
-        /* Fungsi Update UI (KPI)         */
-        /* ------------------------------------- */
-
-        function updateKPIs(kpiData) {
-            const kpiToday = kpiData.today;
-            const kpiYTD = kpiData.ytd;
-
-            // 1. KPI Produksi Hari Ini
-            document.getElementById('kpi-prod-today-value').textContent = formatAngka(kpiToday.prodAktual);
-            updateComparisonClass(document.getElementById('kpi-prod-today-rkap'), kpiToday.prodAktual, kpiToday.prodRKAP);
-            updateComparisonClass(document.getElementById('kpi-prod-today-2024'), kpiToday.prodAktual, kpiToday.prod2024);
-
-            // 2. KPI Produksi YTD
-            document.getElementById('kpi-prod-ytd-value').textContent = formatAngka(kpiYTD.prodAktual);
-            const prodYtdPercent = hitungPersen(kpiYTD.prodAktual, kpiYTD.prodRKAP);
-            updatePercentClass(document.getElementById('kpi-prod-ytd-percent'), prodYtdPercent);
-
-            // 3. KPI OHK Hari Ini
-            document.getElementById('kpi-ohk-today-value').textContent = formatAngka(kpiToday.ohkAktual);
-            updateComparisonClass(document.getElementById('kpi-ohk-today-rkap'), kpiToday.ohkAktual, kpiToday.ohkRKAP);
-            updateComparisonClass(document.getElementById('kpi-ohk-today-2024'), kpiToday.ohkAktual, kpiToday.ohk2024);
-
-            // 4. KPI OHK YTD
-            document.getElementById('kpi-ohk-ytd-value').textContent = formatAngka(kpiYTD.ohkAktual);
-            const ohkYtdPercent = hitungPersen(kpiYTD.ohkAktual, kpiYTD.ohkRKAP);
-            updatePercentClass(document.getElementById('kpi-ohk-ytd-percent'), ohkYtdPercent);
-        }
-
-        /* ------------------------------------- */
-        /* Fungsi Update UI (Tabel)         */
-        /* ------------------------------------- */
-
-        /*
-         * Fungsi generik untuk update tabel detail (Afdeling, Mandor, Asisten, T. Tanam)
-         */
-        function updateDetailTable(tableSelector, data) {
-            const tableBody = document.querySelector(`${tableSelector} tbody`);
-            const tableFooter = document.querySelector(`${tableSelector} tfoot`);
-            if (!tableBody || !tableFooter) return;
-
-            tableBody.innerHTML = ''; // Kosongkan
-            let html = '';
-
-            // Inisialisasi Total
-            const total = createDetailEntry(0);
-
-            // Urutkan data (misalnya berdasarkan nama key)
-            const sortedKeys = Object.keys(data).sort();
-
-            sortedKeys.forEach(key => {
-                const item = data[key];
-
-                // Akumulasi total
-                total.luasHa += item.luasHa;
-                total.todayAktual += item.todayAktual;
-                total.todayRKAP += item.todayRKAP;
-                total.monthAktual += item.monthAktual;
-                total.monthRKAP += item.monthRKAP;
-                total.ytdAktual += item.ytdAktual;
-                total.ytdRKAP += item.ytdRKAP;
-                
-                // Hitung persen YTD
-                const ytdAktualPercent = hitungPersen(item.ytdAktual, item.ytdAktual); // (Ini harusnya vs YTD Aktual Total?)
-                const ytdRKAPPercent = hitungPersen(item.ytdAktual, item.ytdRKAP); // (Ini persen vs RKAP)
-
-                html += `
-                <tr>
-                    <td class="text-left">${key}</td>
-                    <td>${formatAngka(item.luasHa)}</td>
-                    <td>${formatAngka(item.todayAktual)}</td>
-                    <td>${formatAngka(item.todayRKAP)}</td>
-                    <td>${formatAngka(item.monthAktual)}</td>
-                    <td>${formatAngka(item.monthRKAP)}</td>
-                    <td>${formatAngka(item.ytdAktual)}</td>
-                    <td>${formatAngka(item.ytdRKAP)}</td>
-                    <td>${ytdAktualPercent.toFixed(1).replace('.', ',')}%</td> 
-                    <td>${ytdRKAPPercent.toFixed(1).replace('.', ',')}%</td>
-                </tr>
-                `;
-            });
-
-            tableBody.innerHTML = html;
-
-            // Update Footer (Total)
-            const totalYtdAktualPercent = hitungPersen(total.ytdAktual, total.ytdAktual); // (Percent to self)
-            const totalYtdRKAPPercent = hitungPersen(total.ytdAktual, total.ytdRKAP); // (Percent to RKAP)
-            
-            tableFooter.innerHTML = `
-            <tr>
-                <td class="text-left" style="text-align: center;" colspan="1"><b>TOTAL</b></td>
-                <td><b>${formatAngka(total.luasHa)}</b></td>
-                <td><b>${formatAngka(total.todayAktual)}</b></td>
-                <td><b>${formatAngka(total.todayRKAP)}</b></td>
-                <td><b>${formatAngka(total.monthAktual)}</b></td>
-                <td><b>${formatAngka(total.monthRKAP)}</b></td>
-                <td><b>${formatAngka(total.ytdAktual)}</b></td>
-                <td><b>${formatAngka(total.ytdRKAP)}</b></td>
-                <td><b>${totalYtdAktualPercent.toFixed(1).replace('.', ',')}%</b></td>
-                <td><b>${totalYtdRKAPPercent.toFixed(1).replace('.', ',')}%</b></td>
-            </tr>
-            `;
-        }
-
-        /*
-         * Fungsi spesifik untuk update tabel Tapper (struktur kolom berbeda)
-         */
-        function updateTapperTable(data) {
-            const tableBody = document.querySelector('#tapper-table tbody');
-            const tableFooter = document.querySelector('#tapper-table tfoot');
-            if (!tableBody || !tableFooter) return;
-
-            tableBody.innerHTML = '';
-            let html = '';
-            const total = createDetailEntry(0);
-            total.hancaWajib = 0;
-
-            const sortedKeys = Object.keys(data).sort();
-
-            sortedKeys.forEach(key => {
-                const item = data[key];
-
-                // Akumulasi total
-                total.hancaWajib += item.hancaWajib;
-                total.todayAktual += item.todayAktual;
-                total.todayRKAP += item.todayRKAP;
-                total.monthAktual += item.monthAktual;
-                total.monthRKAP += item.monthRKAP;
-                total.ytdAktual += item.ytdAktual;
-                total.ytdRKAP += item.ytdRKAP;
-                
-                const ytdAktualPercent = hitungPersen(item.ytdAktual, item.ytdAktual);
-                const ytdRKAPPercent = hitungPersen(item.ytdAktual, item.ytdRKAP);
-
-                html += `
-                <tr>
-                    <td class="text-left">${item.afdeling}</td>
-                    <td class="text-left">${item.mandor}</td>
-                    <td>${formatAngka(item.hancaWajib)}</td>
-                    <td>${formatAngka(item.todayAktual)}</td>
-                    <td>${formatAngka(item.todayRKAP)}</td>
-                    <td>${formatAngka(item.monthAktual)}</td>
-                    <td>${formatAngka(item.monthRKAP)}</td>
-                    <td>${formatAngka(item.ytdAktual)}</td>
-                    <td>${formatAngka(item.ytdRKAP)}</td>
-                    <td>${ytdAktualPercent.toFixed(1).replace('.', ',')}%</td>
-                    <td>${ytdRKAPPercent.toFixed(1).replace('.', ',')}%</td>
-                </tr>
-                `;
-            });
-
-            tableBody.innerHTML = html;
-
-            // Update Footer
-            const totalYtdAktualPercent = hitungPersen(total.ytdAktual, total.ytdAktual);
-            const totalYtdRKAPPercent = hitungPersen(total.ytdAktual, total.ytdRKAP);
-
-            tableFooter.innerHTML = `
-            <tr>
-                <td class="text-left" style="text-align: center;" colspan="2"><b>TOTAL</b></td>
-                <td><b>${formatAngka(total.hancaWajib)}</b></td>
-                <td><b>${formatAngka(total.todayAktual)}</b></td>
-                <td><b>${formatAngka(total.todayRKAP)}</b></td>
-                <td><b>${formatAngka(total.monthAktual)}</b></td>
-                <td><b>${formatAngka(total.monthRKAP)}</b></td>
-                <td><b>${formatAngka(total.ytdAktual)}</b></td>
-                <td><b>${formatAngka(total.ytdRKAP)}</b></td>
-                <td><b>${totalYtdAktualPercent.toFixed(1).replace('.', ',')}%</b></td>
-                <td><b>${totalYtdRKAPPercent.toFixed(1).replace('.', ',')}%</b></td>
-            </tr>
-            `;
-        }
-
-
-        /* ------------------------------------- */
-        /* Fungsi Update UI (Chart)       */
-        /* ------------------------------------- */
-
-        /*
-         * Render Chart Produksi Bulanan (Bar & Line Combo)
-         */
-        function renderMonthlyChart(dataBulanan, filterBulan, filterTahun) {
-            const ctx = document.getElementById('produksiChart').getContext('2d');
-
-            // Data untuk chart (potong sampai bulan filter)
-            const labels = BULAN_LABELS.slice(0, filterBulan + 1);
-            const dataAktual2025 = dataBulanan.map(d => d.aktual).slice(0, filterBulan + 1);
-            const dataAktual2024 = dataBulanan.map(d => d.prevYear).slice(0, filterBulan + 1);
-            const dataRKAP = dataBulanan.map(d => d.rkap).slice(0, filterBulan + 1);
-
-            // Hancurkan chart lama jika ada
-            if (prodChartInstance) {
-                prodChartInstance.destroy();
-            }
-
-            prodChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: '2025 (Aktual)',
-                            data: dataAktual2025,
-                            backgroundColor: WARNA_BIRU,
-                            borderColor: WARNA_BIRU,
-                            borderWidth: 1,
-                            type: 'bar', // Tipe Bar
-                            order: 2 // Urutan render
-                        },
-                        {
-                            label: '2024 (Aktual)',
-                            data: dataAktual2024,
-                            backgroundColor: WARNA_ABU,
-                            borderColor: WARNA_ABU,
-                            borderWidth: 1,
-                            type: 'bar', // Tipe Bar
-                            order: 3
-                        },
-                         {
-                            label: 'RKAP',
-                            data: dataRKAP,
-                            backgroundColor: 'transparent',
-                            borderColor: WARNA_MERAH,
-                            borderWidth: 3, // Lebih tebal
-                            pointRadius: 4, // Ada titik
-                            type: 'line', // Tipe Garis
-                            order: 1,
-                            tension: 0.1
-                        }
-                    ]
-                },
-                plugins: [ChartDataLabels],
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Produksi Per Bulan (Kg)',
-                            font: { size: 16, weight: '600' },
-                            padding: { bottom: 16 }
-                        },
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            callbacks: {
-                                label: function (context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed.y !== null) {
-                                        label += formatAngka(context.parsed.y) + ' Kg';
-                                    }
-                                    return label;
-                                }
-                            }
-                        },
-                        datalabels: {
-                            display: true,
-                            align: 'top',
-                            anchor: 'end',
-                            color: '#444',
-                            font: { weight: '600', size: 10 },
-                            formatter: (value, context) => {
-                                // Hanya tampilkan label untuk bar (order > 1)
-                                if (context.dataset.order > 1) {
-                                    return formatAngkaSingkat(value);
-                                }
-                                return null; // Sembunyikan label untuk garis
-                            }
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, font: { size: 10 } }
+                    },
+                    title: {
+                        display: true, 
+                        text: 'Produksi Per Bulan (Kg)', 
+                        padding: 8,
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.dataset.label}: ${formatAngka(context.parsed.y)} Kg`
                         }
                     },
-                    scales: {
-                        x: {
-                            stacked: false,
-                            grid: { display: false }
-                        },
-                        y: {
-                            stacked: false,
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Produksi (Kg)'
-                            },
-                            ticks: {
-                                callback: function (value) {
-                                    return formatAngkaSingkat(value);
-                                }
-                            }
-                        }
+                    datalabels: { 
+                        align: 'end',
+                        anchor: 'end',
+                        offset: 4,
+                        font: { size: 10, weight: 'bold' },
+                        formatter: (value, context) => (context.dataset.type === 'bar') ? formatAngkaSingkat(value) + ' Kg' : '',
+                        color: (context) => (context.dataset.type === 'bar') ? WARNA_ABU_ABU : 'transparent'
                     }
-                }
+                },
+                scales: {
+                    x: { stacked: false, grid: { display: false } },
+                    y: {
+                        stacked: false,
+                        beginAtZero: true,
+                        title: { display: true, text: 'Kg', font: { size: 10 } },
+                        ticks: { callback: (value) => formatAngka(value), font: { size: 10 } }
+                    }
+                },
+            };
+
+            if (monthlyChart) { monthlyChart.destroy(); }
+            monthlyChart = new Chart(ctx, { data: data, options: options });
+        }
+        
+        /**
+         * Menggambar atau memperbarui chart OHK bulanan (Comparison Chart: 2025 vs 2024 vs RKAP).
+         */
+        function renderOhkChart(bulanIndex) {
+            const ctx = document.getElementById('monthlyOhkChart').getContext('2d');
+            const maxMonth = bulanIndex + 1;
+            const labels = labelsBulan.slice(0, maxMonth);
+            
+            const dataOhk2025 = [];
+            const dataOhk2024 = [];
+            const dataOhkRkap = [];
+            
+            for (let i = 0; i < maxMonth; i++) {
+                const key = `${String(i + 1).padStart(2, '0')}`;
+                
+                // Ambil data yang sudah diolah
+                dataOhk2025.push(dataBulanan[key]?.jamKerja || 0); // JamKerja 2025
+                dataOhkRkap.push(dataBulanan[key]?.rkapJamKerja || 0); // RKAP JamKerja 2025
+                dataOhk2024.push(dataBulanan2024[key]?.jamKerja || 0); // JamKerja 2024
+            }
+
+            const data = {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'RKAP', 
+                        data: dataOhkRkap,
+                        backgroundColor: WARNA_MERAH, 
+                        borderColor: WARNA_MERAH,
+                        type: 'line', 
+                        borderDash: [5, 5],
+                        borderWidth: 3,
+                        pointRadius: 4, 
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '2024 (Actual)', 
+                        data: dataOhk2024,
+                        backgroundColor: WARNA_BIRU_MUDA, 
+                        borderColor: WARNA_BIRU_MUDA,
+                        borderWidth: 1,
+                        order: 2,
+                        type: 'bar',
+                    },
+                    {
+                        label: '2025 (Actual)', 
+                        data: dataOhk2025,
+                        backgroundColor: WARNA_BIRU_SAPPHIRE, 
+                        borderColor: WARNA_BIRU_SAPPHIRE,
+                        borderWidth: 1,
+                        order: 1,
+                        type: 'bar',
+                    }
+                ]
+            };
+
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, font: { size: 10 } }
+                    },
+                    title: {
+                        display: true,
+                        text: 'OHK Per Bulan (OH)',
+                        padding: 8,
+                        font: { size: 14, weight: 'bold' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.dataset.label}: ${formatAngka(context.parsed.y)} OH`
+                        }
+                    },
+                    datalabels: { 
+                        align: 'end',
+                        anchor: 'end',
+                        offset: 4,
+                        font: { size: 10, weight: 'bold' },
+                        formatter: (value, context) => (context.dataset.type === 'bar') ? formatAngkaSingkat(value) + ' OH' : '',
+                        color: (context) => (context.dataset.type === 'bar') ? WARNA_ABU_ABU : WARNA_MERAH
+                    }
+                },
+                scales: {
+                    x: { stacked: false, grid: { display: false } },
+                    y: {
+                        stacked: false, 
+                        beginAtZero: true,
+                        title: { display: true, text: 'OH', font: { size: 10 } },
+                        ticks: { callback: (value) => formatAngka(value), font: { size: 10 } }
+                    }
+                },
+            };
+
+            if (monthlyOhkChart) { monthlyOhkChart.destroy(); }
+            monthlyOhkChart = new Chart(ctx, { type: 'bar', data: data, options: options });
+        }
+        
+        /**
+         * Fungsi utilitas untuk parsing CSV.
+         */
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            
+            return lines.slice(1).map(line => {
+                const values = line.split(',').map(v => v.trim());
+                const obj = {};
+                headers.forEach((header, index) => {
+                    // Konversi ke angka jika memungkinkan
+                    const value = isNaN(Number(values[index])) ? values[index] : Number(values[index]);
+                    obj[header] = value;
+                });
+                return obj;
             });
         }
         
-        /*
-         * Render Chart OHK Bulanan (Grouped Bar)
+        // URL Google Sheet CSV Anda
+        const URL_DATA_HARIAN = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjNtFERkivPI8-gwiXCdCVOSGKAWB4FF-UbKj-Q4LzOTCzBX44eI_kV2q2qLxj1q_5c-cyfysqOaSU/pub?gid=142978215&single=true&output=csv';
+
+        /**
+         * Mengambil data dari Google Sheet CSV
          */
-        function renderOHKChart(dataBulanan, filterBulan, filterTahun) {
-             const ctx = document.getElementById('ohkChart').getContext('2d');
+        async function fetchDataFromSheet() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
 
-            // Data untuk chart (potong sampai bulan filter)
-            const labels = BULAN_LABELS.slice(0, filterBulan + 1);
-            const dataAktual2025 = dataBulanan.map(d => d.aktual).slice(0, filterBulan + 1);
-            const dataAktual2024 = dataBulanan.map(d => d.prevYear).slice(0, filterBulan + 1);
-            const dataRKAP = dataBulanan.map(d => d.rkap).slice(0, filterBulan + 1);
-            
-            if (ohkChartInstance) {
-                ohkChartInstance.destroy();
+            try {
+                // Ambil data dari Google Sheet CSV
+                const response = await fetch(URL_DATA_HARIAN);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const csvText = await response.text();
+                
+                // Parse CSV data
+                const rawData = parseCSV(csvText);
+                
+                // Proses data sesuai struktur yang diharapkan
+                const processedData = processGoogleSheetData(rawData);
+                
+                document.getElementById('loading-overlay').classList.add('hidden');
+                return processedData;
+                
+            } catch (error) {
+                console.error('Error fetching data from Google Sheet:', error);
+                document.getElementById('loading-overlay').innerHTML = 
+                    `<span class="text-red-600">Gagal memuat data dari Google Sheet. Error: ${error.message}</span>`;
+                
+                // Fallback ke data mock jika gagal
+                return getMockData();
             }
+        }
 
-            ohkChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: '2025 (Aktual)',
-                            data: dataAktual2025,
-                            backgroundColor: WARNA_BIRU,
-                        },
-                        {
-                            label: '2024 (Aktual)',
-                            data: dataAktual2024,
-                            backgroundColor: WARNA_ABU,
-                        },
-                        {
-                            label: 'RKAP',
-                            data: dataRKAP,
-                            backgroundColor: WARNA_MERAH,
-                        }
-                    ]
-                },
-                plugins: [ChartDataLabels],
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'OHK Per Bulan (OHK)',
-                            font: { size: 16, weight: '600' },
-                            padding: { bottom: 16 }
-                        },
-                        legend: {
-                            position: 'bottom',
-                        },
-                        tooltip: {
-                             mode: 'index',
-                            intersect: false,
-                            callbacks: {
-                                label: function (context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed.y !== null) {
-                                        label += formatAngka(context.parsed.y) + ' OHK';
-                                    }
-                                    return label;
-                                }
-                            }
-                        },
-                        datalabels: {
-                            display: true,
-                            align: 'top',
-                            anchor: 'end',
-                            color: '#444',
-                            font: { weight: '600', size: 10 },
-                            formatter: (value) => formatAngkaSingkat(value)
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { display: false }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'OHK (Orang Hari Kerja)'
-                            },
-                             ticks: {
-                                callback: function (value) {
-                                    return formatAngkaSingkat(value);
-                                }
-                            }
-                        }
+        /**
+         * Memproses data dari Google Sheet sesuai struktur yang diharapkan dashboard
+         */
+        function processGoogleSheetData(rawData) {
+            // Data untuk produksi 2025 (dari data harian)
+            const prod2025 = {};
+            // Data untuk target/historis 2024 (dari kolom yang sesuai)
+            const prod2024 = {};
+            
+            const dailyData = [];
+            const afdelingDetails = {};
+            const mandorDetails = {};
+            const tapperDetails = {};
+            let totalLuasHa = 0;
+            
+            // Asumsi struktur kolom Google Sheet Anda:
+            // Tanggal, Afdeling, Mandor, Tapper, LuasHa, Prod_Kg, RKAP_Kg, JamKerja_OH, Prod_2024_Kg
+            rawData.forEach(item => {
+                const date = item.Tanggal;
+                if (!date) return; // Skip baris tanpa tanggal
+                
+                const dateObj = new Date(date);
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const monthKey = month;
+                
+                // Konversi nilai numerik
+                const prodKg = Number(item.Prod_Kg) || 0;
+                const rkapKg = Number(item.RKAP_Kg) || 0;
+                const jamKerjaOH = Number(item.JamKerja_OH) || 0;
+                const luasHa = Number(item.LuasHa) || 0;
+                const prod2024Kg = Number(item.Prod_2024_Kg) || 0;
+                
+                // Agregasi Bulanan 2025
+                if (year === 2025) {
+                    if (!prod2025[monthKey]) {
+                        prod2025[monthKey] = { prod: 0, rkap: 0, jamKerja: 0, rkapJamKerja: 0 };
                     }
+                    prod2025[monthKey].prod += prodKg;
+                    prod2025[monthKey].jamKerja += jamKerjaOH;
+                    // RKAP diambil dari rata-rata atau dari kolom khusus
+                    prod2025[monthKey].rkap += rkapKg;
+                }
+                
+                // Data harian untuk KPI
+                dailyData.push({
+                    Tanggal: date,
+                    Prod_Kg: prodKg,
+                    RKAP_Kg: rkapKg,
+                    JamKerja_OH: jamKerjaOH,
+                    Afdeling: item.Afdeling || 'Unknown',
+                    Mandor: item.Mandor || 'Unknown',
+                    Tapper: item.Tapper || 'Unknown',
+                    LuasHa: luasHa
+                });
+                
+                // Agregasi detail untuk tabel
+                const pct = prodKg > 0 ? prodKg / (prod2025[monthKey]?.prod || 1) : 0;
+                
+                // Afdeling
+                if (!afdelingDetails[item.Afdeling]) {
+                    afdelingDetails[item.Afdeling] = { 
+                        name: item.Afdeling, 
+                        luasHa: luasHa, 
+                        pct: 0, 
+                        pct24: 0.05, // Default, sesuaikan dengan data aktual
+                        pctRKAP: 0.05, // Default, sesuaikan dengan data aktual
+                        tahunTanam: 2018 // Default, sesuaikan dengan data aktual
+                    };
+                    totalLuasHa += luasHa;
+                }
+                afdelingDetails[item.Afdeling].pct += pct;
+                
+                // Mandor
+                if (!mandorDetails[item.Mandor]) {
+                    mandorDetails[item.Mandor] = { 
+                        name: item.Mandor, 
+                        pct: 0, 
+                        pct24: 0.05, 
+                        pctRKAP: 0.05, 
+                        luasHa: luasHa * 0.5 
+                    };
+                }
+                mandorDetails[item.Mandor].pct += pct;
+                
+                // Tapper
+                if (!tapperDetails[item.Tapper]) {
+                    tapperDetails[item.Tapper] = { 
+                        name: item.Tapper, 
+                        afdeling: item.Afdeling, 
+                        mandor: item.Mandor, 
+                        wajib: 80, // Default, sesuaikan dengan data aktual
+                        pct: 0, 
+                        pct24: 0.03, 
+                        pctRKAP: 0.03 
+                    };
+                }
+                tapperDetails[item.Tapper].pct += pct;
+            });
+            
+            // Hitung RKAP JamKerja (asumsi berdasarkan rasio)
+            Object.keys(prod2025).forEach(monthKey => {
+                if (prod2025[monthKey].rkap > 0) {
+                    prod2025[monthKey].rkapJamKerja = prod2025[monthKey].rkap * 
+                        (prod2025[monthKey].jamKerja / prod2025[monthKey].prod);
                 }
             });
+            
+            // Data 2024 (target/historis) - perlu disesuaikan dengan struktur data Anda
+            // Untuk sementara menggunakan data mock, sesuaikan dengan data aktual dari Sheet
+            const monthlyTargetData = {};
+            for (let i = 1; i <= 12; i++) {
+                const monthKey = String(i).padStart(2, '0');
+                monthlyTargetData[monthKey] = {
+                    prod: prod2025[monthKey]?.rkap * 0.95 || 0, // Mock: 95% dari RKAP 2025
+                    jamKerja: prod2025[monthKey]?.rkapJamKerja * 0.95 || 0
+                };
+            }
+            
+            const processedData = {
+                dataBulanan: prod2025,
+                dataBulanan2024: monthlyTargetData,
+                allDailyData: dailyData,
+                MOCK_AFD_DATA: Object.values(afdelingDetails),
+                MOCK_MANDOR_DATA: Object.values(mandorDetails),
+                MOCK_TAPPER_DATA: Object.values(tapperDetails),
+                TOTAL_LUAS_KEBUN_HA: totalLuasHa,
+                latestDate: dailyData.length > 0 ? dailyData[dailyData.length - 1].Tanggal : '2025-10-31'
+            };
+            
+            // Hitung KPI harian dari data terakhir
+            const latestData = dailyData.filter(item => item.Tanggal === processedData.latestDate);
+            if (latestData.length > 0) {
+                processedData.MOCK_PROD_HARIAN_KG = latestData.reduce((sum, item) => sum + item.Prod_Kg, 0);
+                processedData.MOCK_TARGET_HARIAN_KG = latestData.reduce((sum, item) => sum + item.RKAP_Kg, 0);
+                processedData.MOCK_TAHUN_LALU_HARIAN_KG = processedData.MOCK_TARGET_HARIAN_KG * 0.95; // Mock
+            }
+            
+            return processedData;
         }
+
+        /**
+         * Data fallback jika Google Sheet tidak dapat diakses
+         */
+        function getMockData() {
+            const mockDailyCSV = `
+Tanggal,Prod_Kg,RKAP_Kg,JamKerja_OH,Afdeling,Mandor,Tapper,LuasHa
+2025-01-01,4150,4000,250,Margosugih,Budi (Afd M),Tapper 01,550.25
+2025-01-01,3900,3950,230,Kalibaru Kidul,Ani (Afd N),Tapper 10,420.70
+2025-01-02,4000,4000,255,Margosugih,Budi (Afd M),Tapper 01,550.25
+2025-01-02,4050,3950,240,Kalibaru Kidul,Ani (Afd N),Tapper 10,420.70
+2025-01-03,4500,4000,260,Kajar,Cipto (Afd O),Tapper 02,500.00
+2025-02-01,4200,4000,250,Kajar,Cipto (Afd O),Tapper 02,500.00
+2025-02-02,4100,4000,245,Kajar,Cipto (Afd O),Tapper 02,500.00
+2025-03-01,4600,4000,270,Kacangan,Dewi (Afd P),Tapper 03,480.95
+2025-03-02,4500,4000,265,Jatirono Utara,Eko (Afd Q),Tapper 04,380.11
+2025-04-01,4800,4000,280,Kampung Lima,Fitri (Afd R),Tapper 05,400.00
+2025-05-01,5000,4000,290,Margosugih,Gatot (Afd S),Tapper 06,550.25
+2025-06-01,5200,4000,300,Kalibaru Kidul,Hadi (Afd T),Tapper 07,420.70
+2025-07-01,5500,4000,310,Kajar,Budi (Afd M),Tapper 08,500.00
+2025-08-01,5600,4000,320,Kacangan,Ani (Afd N),Tapper 09,480.95
+2025-09-01,5300,4000,305,Jatirono Utara,Cipto (Afd O),Tapper 10,380.11
+2025-10-01,5100,4000,295,Kampung Lima,Dewi (Afd P),Tapper 11,400.00
+`;
+            
+            const dailyData = parseCSV(mockDailyCSV);
+            return processGoogleSheetData(dailyData);
+        }
+
+        /**
+         * (BARU) Menginisialisasi dan memproses data yang diambil dari Sheet.
+         */
+        async function initializeDataAndDashboard() {
+            try {
+                // Ambil data mentah dari Google Sheet
+                const data = await fetchDataFromSheet();
+
+                // Assign data to global variables
+                dataBulanan = data.dataBulanan;
+                dataBulanan2024 = data.dataBulanan2024;
+                
+                MOCK_PROD_HARIAN_KG = data.MOCK_PROD_HARIAN_KG;
+                MOCK_TARGET_HARIAN_KG = data.MOCK_TARGET_HARIAN_KG;
+                MOCK_TAHUN_LALU_HARIAN_KG = data.MOCK_TAHUN_LALU_HARIAN_KG;
+                
+                MOCK_AFD_DATA = data.MOCK_AFD_DATA;
+                MOCK_MANDOR_DATA = data.MOCK_MANDOR_DATA;
+                MOCK_TAPPER_DATA = data.MOCK_TAPPER_DATA;
+                TOTAL_LUAS_KEBUN_HA = data.TOTAL_LUAS_KEBUN_HA;
+                
+                // Recalculate derived data (Asisten Afdeling dan Tahun Tanam)
+                const totalLuasMandor = MOCK_MANDOR_DATA.reduce((sum, item) => sum + item.luasHa, 0);
+                MOCK_ASAFDELING_DATA = [ // Mock Asisten Afdeling (perlu diisi dari data Anda)
+                    { name: 'Suhadi (As. Afdeling 1)', pct: 0.15, pct24: 0.16, pctRKAP: 0.14, luasHa: totalLuasMandor * 0.3 },
+                    { name: 'Tono (As. Afdeling 2)', pct: 0.17, pct24: 0.17, pctRKAP: 0.18, luasHa: totalLuasMandor * 0.4 },
+                    { name: 'Wati (As. Afdeling 3)', pct: 0.18, pct24: 0.19, pctRKAP: 0.17, luasHa: totalLuasMandor * 0.3 },
+                ];
+                
+                const tTanamMap = MOCK_AFD_DATA.reduce((acc, afd) => {
+                    const year = afd.tahunTanam;
+                    if (!acc[year]) {
+                        acc[year] = { name: String(year), luasHa: 0, pct: 0, pct24: 0, pctRKAP: 0 };
+                    }
+                    acc[year].luasHa += afd.luasHa;
+                    acc[year].pct += afd.pct;
+                    acc[year].pct24 += afd.pct24;
+                    acc[year].pctRKAP += afd.pctRKAP;
+                    return acc;
+                }, {});
+                TTANAM_DATA_ARRAY = Object.values(tTanamMap).sort((a, b) => a.name - b.name);
+
+                // Start dashboard rendering
+                const dateFilter = document.getElementById('date-filter');
+                const defaultDate = data.latestDate || '2025-10-31';
+                
+                // Jika data sudah dimuat, set tanggal dan panggil updateDashboard
+                dateFilter.value = defaultDate;
+                const initialDate = new Date(defaultDate + 'T00:00:00Z');
+                updateDashboard(initialDate.getUTCMonth(), dateFilter);
+
+            } catch (error) {
+                console.error('Gagal memuat data:', error);
+                document.getElementById('loading-overlay').innerHTML = `<span class="text-red-600">Gagal memuat data. Cek koneksi atau URL Google Sheet.</span>`;
+            }
+        }
+
+        /**
+         * Main function to compute KPIs and update the dashboard elements
+         * based on the selected month index derived from the date input.
+         * @param {number} bulanIndex - 0-indexed month (0=Jan, 9=Oct).
+         * @param {HTMLInputElement} tanggalInput - The date input element.
+         */
+        function updateDashboard(bulanIndex, tanggalInput) {
+            // Check if data is loaded
+            if (Object.keys(dataBulanan).length === 0) {
+                console.warn('Data belum dimuat.');
+                return;
+            }
+
+            // --- YTD 2025 CALCULATION (TAHUN INI) ---
+            const ytd = { prod:0, rkap:0, jamKerja:0, rkapJamKerja:0 };
+            const rkapTotal = labelsBulan.reduce((sum, _, i) => {
+                const key = String(i+1).padStart(2,'0');
+                return sum + (dataBulanan[key]?.rkap || 0);
+            }, 0); 
+            
+            for (let i=0;i<=bulanIndex;i++){
+                const key = String(i+1).padStart(2,'0');
+                const d = dataBulanan[key];
+                if (!d) continue;
+                ytd.prod += d.prod; 
+                ytd.rkap += d.rkap || 0; 
+                ytd.jamKerja += d.jamKerja;
+                ytd.rkapJamKerja += d.rkapJamKerja || 0;
+            }
+
+            // --- YTD 2024 CALCULATION (TAHUN LALU) ---
+            const ytd2024 = { prod:0, jamKerja:0 };
+            for (let i=0;i<=bulanIndex;i++){
+                const key = String(i+1).padStart(2,'0');
+                const d = dataBulanan2024[key];
+                if (d) {
+                    ytd2024.prod += d.prod;
+                    ytd2024.jamKerja += d.jamKerja;
+                }
+            }
+
+            // --- CURRENT MONTH DATA ---
+            const bulanKey = String(bulanIndex+1).padStart(2,'0');
+            const dataBulanIni = dataBulanan[bulanKey] || { prod:0, rkap:0, jamKerja:0, rkapJamKerja:0 };
+            const dataBulanIni2024 = dataBulanan2024[bulanKey] || { prod:0, jamKerja:0 };
+
+            // Convert to KG (Ton to Kg) - Data kita sudah KG, jadi tidak perlu konversi
+            const prodYtdKg = ytd.prod; 
+            const rkapYtdKg = ytd.rkap; 
+            const prodYtd2024Kg = ytd2024.prod; 
+
+            const prodBulanIniKg = dataBulanIni.prod; 
+            const rkapBulanIniKg = dataBulanIni.rkap; 
+            const prodBulanIni2024Kg = dataBulanIni2024.prod; 
+
+            // Today's mock data (Harian)
+            const prodTodayKg = MOCK_PROD_HARIAN_KG; 
+            const rkapTodayKg = MOCK_TARGET_HARIAN_KG; 
+            const prodToday2024Kg = MOCK_TAHUN_LALU_HARIAN_KG; 
+
+            // Hitung Total Setahun 2024 (Kg)
+            const prodSetahun2024Kg = Object.values(dataBulanan2024).reduce((sum, d) => sum + d.prod, 0);
+            
+            // Hitung Total RKAP Setahun (Kg)
+            const rkapSetahunKg = rkapTotal;
+
+            // Gabungkan semua total untuk tabel afdeling/mandor
+            const totals = {
+                hi: { real2025: prodTodayKg, real2024: prodToday2024Kg, rkap: rkapTodayKg },
+                bi: { real2025: prodBulanIniKg, real2024: prodBulanIni2024Kg, rkap: rkapBulanIniKg },
+                ytd: { real2025: prodYtdKg, real2024: prodYtd2024Kg, rkap: rkapYtdKg },
+                setahun: { real2024: prodSetahun2024Kg, rkap: rkapSetahunKg }
+            };
+
+            // ------------------------------------------------
+            // 1. UPDATE KPI CARDS
+            // ------------------------------------------------
+            
+            document.getElementById('kpi-ytd-prod').textContent = formatAngka(prodYtdKg) + ' Kg';
+            document.getElementById('kpi-bulan-prod').textContent = formatAngka(prodBulanIniKg) + ' Kg';
+            document.getElementById('kpi-today-prod').textContent = formatAngka(prodTodayKg) + ' Kg';
+
+            document.getElementById('kpi-ytd-rkap-line').innerHTML = renderComparisonLine(rkapYtdKg, prodYtdKg, 'RKAP');
+            document.getElementById('kpi-ytd-prev-year-line').innerHTML = renderComparisonLine(prodYtd2024Kg, prodYtdKg, '2024');
+
+            document.getElementById('kpi-bulan-rkap-line').innerHTML = renderComparisonLine(rkapBulanIniKg, prodBulanIniKg, 'RKAP');
+            document.getElementById('kpi-bulan-prev-year-line').innerHTML = renderComparisonLine(prodBulanIni2024Kg, prodBulanIniKg, '2024');
+
+            document.getElementById('kpi-today-rkap-line').innerHTML = renderComparisonLine(rkapTodayKg, prodTodayKg, 'RKAP');
+            document.getElementById('kpi-today-prev-year-line').innerHTML = renderComparisonLine(prodToday2024Kg, prodTodayKg, '2024');
+
+            updateButtonStates(tanggalInput);
+
+            // ------------------------------------------------
+            // 2. UPDATE DETAIL TABLES
+            // ------------------------------------------------
+            updateAfdelingTable(totals);
+            updateMandorTable(totals); 
+            updateAsistenAfdelingTable(totals);
+            updateTahunTanamTable(totals); 
+            updateTapperTable(totals); 
+            
+            // ------------------------------------------------
+            // 3. UPDATE CHART BULANAN
+            // ------------------------------------------------
+            renderMonthlyChart(bulanIndex);
+            renderOhkChart(bulanIndex); 
+            
+            feather.replace(); 
+        }
+
+        /**
+         * Mengisi tabel detail per Afdeling (Kolom Tahun Tanam dihapus)
+         */
+        function updateAfdelingTable(totals) {
+            
+            const tbody = document.getElementById('afdeling-table-body');
+            const tfoot = document.getElementById('afdeling-table-foot');
+            tbody.innerHTML = ''; 
+            
+            const formatCell = (val) => `<span class="font-medium">${formatAngka(val)}</span>`;
+
+            MOCK_AFD_DATA.forEach(item => {
+                const hi_real_2025 = totals.hi.real2025 * item.pct;
+                const hi_real_2024 = totals.hi.real2024 * item.pct24;
+                const hi_rkap = totals.hi.rkap * item.pctRKAP;
+                
+                const bi_real_2025 = totals.bi.real2025 * item.pct;
+                const bi_real_2024 = totals.bi.real2024 * item.pct24;
+                const bi_rkap = totals.bi.rkap * item.pctRKAP;
+                
+                const ytd_real_2025 = totals.ytd.real2025 * item.pct;
+                const ytd_real_2024 = totals.ytd.real2024 * item.pct24;
+                const ytd_rkap = totals.ytd.rkap * item.pctRKAP;
+                
+                const setahun_real_2024 = totals.setahun.real2024 * item.pct24;
+                const setahun_rkap = totals.setahun.rkap * item.pctRKAP;
+                
+                const luasHaFormatted = formatLuasHa(item.luasHa);
+
+                const row = `
+                    <tr class="border-b border-gray-200">
+                        <!-- Afdeling Name (Kiri) --><td class="px-2 py-1 font-medium text-left border-r border-gray-200">${item.name}</td>
+                        <!-- Luas (Ha) (Kanan) --><td class="px-2 py-1 font-medium text-right border-r border-gray-200">${luasHaFormatted}</td>
+                        
+                        <!-- Hari Ini --><td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(hi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(hi_real_2024)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(hi_rkap)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_rkap)}
+                        </td>
+                        
+                        <!-- Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(bi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(bi_real_2024)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(bi_rkap)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_rkap)}
+                        </td>
+
+                        <!-- S.d. Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(ytd_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(ytd_real_2024)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(ytd_rkap)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_rkap)}
+                        </td>
+
+                        <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200">
+                            ${formatCell(setahun_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right">
+                            ${formatCell(setahun_rkap)}
+                            ${renderPerbandinganAfdeling(setahun_real_2024, setahun_rkap)}
+                        </td>
+                    </tr>`;
+                tbody.innerHTML += row;
+            });
+            
+            const totalLuasHa = MOCK_AFD_DATA.reduce((sum, item) => sum + item.luasHa, 0);
+
+            tfoot.innerHTML = `
+                <tr class="bg-blue-50 border-b border-gray-200">
+                    <!-- Total Kebun (Spanning Afdeling Name) --><td colspan="1" class="px-2 py-1 text-left border-r border-gray-200">Total Kebun</td>
+                    <!-- Total Luas Ha --><td class="px-2 py-1 text-right border-r border-gray-200 font-medium">${formatLuasHa(totalLuasHa)} Ha</td>
+                    <!-- HI --><td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.hi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.hi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.hi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.rkap)}
+                    </td>
+                    <!-- BI --><td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.bi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.bi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.bi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.rkap)}
+                    </td>
+                    <!-- YTD --><td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.ytd.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.ytd.real2024)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.ytd.rkap)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.rkap)}
+                    </td>
+                    <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200">
+                        ${formatCell(totals.setahun.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right">
+                        ${formatCell(totals.setahun.rkap)}
+                        ${renderPerbandinganAfdeling(totals.setahun.real2024, totals.setahun.rkap)}
+                    </td>
+                </tr>`;
+        }
+        
+        /**
+         * Mengisi tabel detail per Mandor
+         */
+        function updateMandorTable(totals) {
+            
+            const tbody = document.getElementById('mandor-table-body');
+            const tfoot = document.getElementById('mandor-table-foot');
+            tbody.innerHTML = ''; 
+            
+            const formatCell = (val) => `<span class="font-medium">${formatAngka(val)}</span>`;
+
+            MOCK_MANDOR_DATA.forEach(item => {
+                const hi_real_2025 = totals.hi.real2025 * item.pct;
+                const hi_real_2024 = totals.hi.real2024 * item.pct24;
+                const hi_rkap = totals.hi.rkap * item.pctRKAP;
+                
+                const bi_real_2025 = totals.bi.real2025 * item.pct;
+                const bi_real_2024 = totals.bi.real2024 * item.pct24;
+                const bi_rkap = totals.bi.rkap * item.pctRKAP;
+                
+                const ytd_real_2025 = totals.ytd.real2025 * item.pct;
+                const ytd_real_2024 = totals.ytd.real2024 * item.pct24;
+                const ytd_rkap = totals.ytd.rkap * item.pctRKAP;
+                
+                const setahun_real_2024 = totals.setahun.real2024 * item.pct24;
+                const setahun_rkap = totals.setahun.rkap * item.pctRKAP;
+                
+                const luasHaFormatted = formatLuasHa(item.luasHa);
+
+                const row = `
+                    <tr class="border-b border-gray-200">
+                        <!-- Mandor Name (Kiri) --><td class="px-2 py-1 font-medium text-left border-r border-gray-200" style="vertical-align:top;">${item.name}</td>
+                        <!-- Luas (Ha) --><td class="px-2 py-1 font-medium text-right border-r border-gray-200" style="vertical-align:top;">${luasHaFormatted}</td>
+                        
+                        <!-- Hari Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2024)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_rkap)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_rkap)}
+                        </td>
+                        
+                        <!-- Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2024)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_rkap)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_rkap)}
+                        </td>
+
+                        <!-- S.d. Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2024)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_rkap)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_rkap)}
+                        </td>
+
+                        <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(setahun_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                            ${formatCell(setahun_rkap)}
+                            ${renderPerbandinganAfdeling(setahun_real_2024, setahun_rkap)}
+                        </td>
+                    </tr>`;
+                tbody.innerHTML += row;
+            });
+            
+            tfoot.innerHTML = `
+                <tr class="bg-blue-50 border-b border-gray-200">
+                    <!-- Total Kebun (Spans Mandor Name) --><td class="px-2 py-1 text-left border-r border-gray-200" style="vertical-align:top;">Total Kebun</td>
+                    <!-- Total Luas Ha -->
+                    <td class="px-2 py-1 text-right border-r border-gray-200 font-medium" style="vertical-align:top;">${formatLuasHa(TOTAL_LUAS_KEBUN_HA)} Ha</td>
+                    <!-- HI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.rkap)}
+                    </td>
+                    <!-- BI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.rkap)}
+                    </td>
+                    <!-- YTD --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2024)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.rkap)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.rkap)}
+                    </td>
+                    <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.rkap)}
+                        ${renderPerbandinganAfdeling(totals.setahun.real2024, totals.setahun.rkap)}
+                    </td>
+                </tr>`;
+        }
+
+        /**
+         * (BARU) Mengisi tabel detail per Asisten Afdeling
+         */
+        function updateAsistenAfdelingTable(totals) {
+            
+            const tbody = document.getElementById('asafdeling-table-body');
+            const tfoot = document.getElementById('asafdeling-table-foot');
+            tbody.innerHTML = ''; 
+            
+            const formatCell = (val) => `<span class="font-medium">${formatAngka(val)}</span>`;
+
+            MOCK_ASAFDELING_DATA.forEach(item => {
+                const hi_real_2025 = totals.hi.real2025 * item.pct;
+                const hi_real_2024 = totals.hi.real2024 * item.pct24;
+                const hi_rkap = totals.hi.rkap * item.pctRKAP;
+                
+                const bi_real_2025 = totals.bi.real2025 * item.pct;
+                const bi_real_2024 = totals.bi.real2024 * item.pct24;
+                const bi_rkap = totals.bi.rkap * item.pctRKAP;
+                
+                const ytd_real_2025 = totals.ytd.real2025 * item.pct;
+                const ytd_real_2024 = totals.ytd.real2024 * item.pct24;
+                const ytd_rkap = totals.ytd.rkap * item.pctRKAP;
+                
+                const setahun_real_2024 = totals.setahun.real2024 * item.pct24;
+                const setahun_rkap = totals.setahun.rkap * item.pctRKAP;
+
+                const luasHaFormatted = formatLuasHa(item.luasHa);
+                
+                const row = `
+                    <tr class="border-b border-gray-200">
+                        <!-- Asisten Afdeling Name (Kiri) --><td class="px-2 py-1 font-medium text-left border-r border-gray-200" style="vertical-align:top;">${item.name}</td>
+                        <!-- Luas (Ha) --><td class="px-2 py-1 font-medium text-right border-r border-gray-200" style="vertical-align:top;">${luasHaFormatted}</td>
+                        
+                        <!-- Hari Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2024)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_rkap)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_rkap)}
+                        </td>
+                        
+                        <!-- Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2024)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_rkap)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_rkap)}
+                        </td>
+
+                        <!-- S.d. Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2024)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_rkap)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_rkap)}
+                        </td>
+
+                        <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(setahun_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                            ${formatCell(setahun_rkap)}
+                            ${renderPerbandinganAfdeling(setahun_real_2024, setahun_rkap)}
+                        </td>
+                    </tr>`;
+                tbody.innerHTML += row;
+            });
+            
+            tfoot.innerHTML = `
+                <tr class="bg-blue-50 border-b border-gray-200">
+                    <!-- Total Asisten Afdeling (Spans Asisten Afdeling Name) --><td class="px-2 py-1 text-left border-r border-gray-200" style="vertical-align:top;">Total Kebun</td>
+                    <!-- Total Luas Ha -->
+                    <td class="px-2 py-1 text-right border-r border-gray-200 font-medium" style="vertical-align:top;">${formatLuasHa(TOTAL_LUAS_KEBUN_HA)} Ha</td>
+                    <!-- HI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.rkap)}
+                    </td>
+                    <!-- BI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.rkap)}
+                    </td>
+                    <!-- YTD --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2024)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.rkap)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.rkap)}
+                    </td>
+                    <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.rkap)}
+                        ${renderPerbandinganAfdeling(totals.setahun.real2024, totals.setahun.rkap)}
+                    </td>
+                </tr>`;
+        }
+        
+        /**
+         * (BARU) Mengisi tabel detail per Tahun Tanam
+         */
+        function updateTahunTanamTable(totals) {
+            
+            const tbody = document.getElementById('ttanam-table-body');
+            const tfoot = document.getElementById('ttanam-table-foot');
+            tbody.innerHTML = ''; 
+            
+            const formatCell = (val) => `<span class="font-medium">${formatAngka(val)}</span>`;
+
+            TTANAM_DATA_ARRAY.forEach(item => {
+                const hi_real_2025 = totals.hi.real2025 * item.pct;
+                const hi_real_2024 = totals.hi.real2024 * item.pct24;
+                const hi_rkap = totals.hi.rkap * item.pctRKAP;
+                
+                const bi_real_2025 = totals.bi.real2025 * item.pct;
+                const bi_real_2024 = totals.bi.real2024 * item.pct24;
+                const bi_rkap = totals.bi.rkap * item.pctRKAP;
+                
+                const ytd_real_2025 = totals.ytd.real2025 * item.pct;
+                const ytd_real_2024 = totals.ytd.real2024 * item.pct24;
+                const ytd_rkap = totals.ytd.rkap * item.pctRKAP;
+                
+                const setahun_real_2024 = totals.setahun.real2024 * item.pct24;
+                const setahun_rkap = totals.setahun.rkap * item.pctRKAP;
+                
+                const luasHaFormatted = formatLuasHa(item.luasHa);
+
+                const row = `
+                    <tr class="border-b border-gray-200">
+                        <!-- Tahun Tanam Name (Kiri) --><td class="px-2 py-1 font-medium text-left border-r border-gray-200" style="vertical-align:top;">${item.name}</td>
+                        <!-- Luas (Ha) --><td class="px-2 py-1 font-medium text-right border-r border-gray-200" style="vertical-align:top;">${luasHaFormatted}</td>
+                        
+                        <!-- Hari Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2024)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_rkap)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_rkap)}
+                        </td>
+                        
+                        <!-- Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2024)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_rkap)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_rkap)}
+                        </td>
+
+                        <!-- S.d. Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2024)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_rkap)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_rkap)}
+                        </td>
+
+                        <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(setahun_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                            ${formatCell(setahun_rkap)}
+                            ${renderPerbandinganAfdeling(setahun_real_2024, setahun_rkap)}
+                        </td>
+                    </tr>`;
+                tbody.innerHTML += row;
+            });
+            
+            tfoot.innerHTML = `
+                <tr class="bg-blue-50 border-b border-gray-200">
+                    <!-- Total Kebun (Spans Tahun Tanam Name) --><td class="px-2 py-1 text-left border-r border-gray-200" style="vertical-align:top;">Total Kebun</td>
+                    <!-- Total Luas Ha -->
+                    <td class="px-2 py-1 text-right border-r border-gray-200 font-medium" style="vertical-align:top;">${formatLuasHa(TOTAL_LUAS_KEBUN_HA)} Ha</td>
+                    <!-- HI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.rkap)}
+                    </td>
+                    <!-- BI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.rkap)}
+                    </td>
+                    <!-- YTD --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2024)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.rkap)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.rkap)}
+                    </td>
+                    <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.rkap)}
+                        ${renderPerbandinganAfdeling(totals.setahun.real2024, totals.setahun.rkap)}
+                    </td>
+                </tr>`;
+        }
+        
+        /**
+         * (BARU) Mengisi tabel detail per Tapper
+         */
+        function updateTapperTable(totals) {
+            
+            const tbody = document.getElementById('tapper-table-body');
+            const tfoot = document.getElementById('tapper-table-foot');
+            tbody.innerHTML = ''; 
+            
+            const formatCell = (val) => `<span class="font-medium">${formatAngka(val)}</span>`;
+
+            const totalHancaWajib = MOCK_TAPPER_DATA.reduce((sum, item) => sum + item.wajib, 0);
+
+            MOCK_TAPPER_DATA.forEach(item => {
+                const hi_real_2025 = totals.hi.real2025 * item.pct;
+                const hi_real_2024 = totals.hi.real2024 * item.pct24;
+                const hi_rkap = totals.hi.rkap * item.pctRKAP;
+                
+                const bi_real_2025 = totals.bi.real2025 * item.pct;
+                const bi_real_2024 = totals.bi.real2024 * item.pct24;
+                const bi_rkap = totals.bi.rkap * item.pctRKAP;
+                
+                const ytd_real_2025 = totals.ytd.real2025 * item.pct;
+                const ytd_real_2024 = totals.ytd.real2024 * item.pct24;
+                const ytd_rkap = totals.ytd.rkap * item.pctRKAP;
+                
+                const setahun_real_2024 = totals.setahun.real2024 * item.pct24;
+                const setahun_rkap = totals.setahun.rkap * item.pctRKAP;
+                
+                const row = `
+                    <tr class="border-b border-gray-200">
+                        <!-- Afdeling (NEW STARTING COLUMN) --><td class="px-2 py-1 text-left border-r border-gray-200" style="vertical-align:top;">${item.afdeling}</td>
+                        <!-- Mandor --><td class="px-2 py-1 text-left border-r border-gray-200" style="vertical-align:top;">${item.mandor.split(' (')[0]}</td>
+                        <!-- Hanca Wajib --><td class="px-2 py-1 text-center border-r border-gray-200" style="vertical-align:top;">${formatHancaWajib(item.wajib)}</td>
+                        
+                        <!-- Hari Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_real_2024)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(hi_rkap)}
+                            ${renderPerbandinganAfdeling(hi_real_2025, hi_rkap)}
+                        </td>
+                        
+                        <!-- Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_real_2024)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(bi_rkap)}
+                            ${renderPerbandinganAfdeling(bi_real_2025, bi_rkap)}
+                        </td>
+
+                        <!-- S.d. Bulan Ini --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2025)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_real_2024)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(ytd_rkap)}
+                            ${renderPerbandinganAfdeling(ytd_real_2025, ytd_rkap)}
+                        </td>
+
+                        <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                            ${formatCell(setahun_real_2024)}
+                        </td>
+                        <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                            ${formatCell(setahun_rkap)}
+                            ${renderPerbandinganAfdeling(setahun_real_2024, setahun_rkap)}
+                        </td>
+                    </tr>`;
+                tbody.innerHTML += row;
+            });
+            
+            tfoot.innerHTML = `
+                <tr class="bg-blue-50 border-b border-gray-200">
+                    <!-- Total Kebun (Spans 2 columns: Afdeling, Mandor) -->
+                    <td colspan="2" class="px-2 py-1 text-left border-r border-gray-200" style="vertical-align:top;">Total Kebun</td>
+                    <!-- Total Hanca Wajib -->
+                    <td class="px-2 py-1 text-center border-r border-gray-200 font-medium" style="vertical-align:top;">${formatHancaWajib(totalHancaWajib)}</td>
+                    <!-- HI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.hi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.hi.real2025, totals.hi.rkap)}
+                    </td>
+                    <!-- BI --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.real2024)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.bi.rkap)}
+                        ${renderPerbandinganAfdeling(totals.bi.real2025, totals.bi.rkap)}
+                    </td>
+                    <!-- YTD --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2025)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.real2024)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.ytd.rkap)}
+                        ${renderPerbandinganAfdeling(totals.ytd.real2025, totals.ytd.rkap)}
+                    </td>
+                    <!-- Setahun --><td class="px-2 py-1 text-right border-r border-gray-200" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.real2024)}
+                    </td>
+                    <td class="px-2 py-1 text-right" style="vertical-align:top;">
+                        ${formatCell(totals.setahun.rkap)}
+                        ${renderPerbandinganAfdeling(totals.setahun.real2024, totals.setahun.rkap)}
+                    </td>
+                </tr>`;
+        }
+        
+        /**
+         * (BARU) Fungsi untuk mengelola perpindahan tab
+         */
+        function switchTab(targetId) {
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+
+            const targetButton = document.querySelector(`[data-target="${targetId}"]`);
+            if (targetButton) {
+                 targetButton.classList.add('active');
+            }
+            
+            const targetContent = document.getElementById(targetId);
+            if (targetContent) {
+                targetContent.classList.remove('hidden');
+            }
+            
+            feather.replace();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            feather.replace();
+
+            // date control setup
+            const dateFilter = document.getElementById('date-filter');
+            const defaultDate = '2025-10-31';
+            dateFilter.value = defaultDate;
+            dateFilter.min = '2025-01-01';
+            dateFilter.max = '2025-12-31';
+
+            /**
+             * Clamps the date object to ensure it stays within min/max bounds.
+             */
+            function clampDate(d){
+                const min = new Date(dateFilter.min + 'T00:00:00Z');
+                const max = new Date(dateFilter.max + 'T00:00:00Z');
+                if (d.getTime() < min.getTime()) return min; 
+                if (d.getTime() > max.getTime()) return max; 
+                return d;
+            }
+
+            /** Changes the date filter by a number of days and triggers update */
+            function changeDateBy(days){
+                const cur = dateFilter.value ? new Date(dateFilter.value + 'T00:00:00Z') : new Date(defaultDate + 'T00:00:00Z');
+                cur.setUTCDate(cur.getUTCDate() + days);
+                
+                const clamped = clampDate(cur);
+                const iso = clamped.toISOString().slice(0,10);
+                dateFilter.value = iso;
+                dateFilter.dispatchEvent(new Event('change',{bubbles:true}));
+            }
+
+            document.getElementById('prev-date').addEventListener('click', ()=> changeDateBy(-1));
+            document.getElementById('next-date').addEventListener('click', ()=> changeDateBy(1));
+
+            // Date Change Handler: Recalculates all KPIs and updates
+            dateFilter.addEventListener('change', (e)=>{
+                if (e.target.value) {
+                    const sel = new Date(e.target.value + 'T00:00:00Z');
+                    const monthIdx = sel.getUTCMonth(); 
+                    updateDashboard(monthIdx, e.target);
+                } else {
+                    e.target.value = defaultDate;
+                    const initialDate = new Date(defaultDate + 'T00:00:00Z');
+                    updateDashboard(initialDate.getUTCMonth(), e.target);
+                }
+            });
+            
+            // Event Listener untuk Tab Control
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const targetId = e.currentTarget.getAttribute('data-target');
+                    if (targetId) { 
+                        switchTab(targetId);
+                    }
+                });
+            });
+
+            // sidebar toggle logic
+            const sidebar = document.getElementById('sidebar');
+            document.getElementById('toggle-sidebar').addEventListener('click', ()=>{
+                sidebar.classList.toggle('minimized');
+            });
+
+            // Initial data load and dashboard render
+            initializeDataAndDashboard();
+            
+            // Set initial tab to Afdeling after all tables are rendered (asynchronously after data loads)
+            switchTab('content-afdeling');
+        });
     </script>
 </body>
-
 </html>
-
